@@ -47,6 +47,12 @@ case "${1:-}" in
         journalctl -u "netrunner-$2" -n "$lines" --no-pager
         ;;
 
+    # --- Cleanup before deploy ---
+    clean-deploy)
+        validate_name "$2"
+        rm -rf "$APPS_ROOT/$2/source" "$APPS_ROOT/$2/releases/v_new"
+        ;;
+
     # --- App directory setup ---
     init-app)
         validate_name "$2"

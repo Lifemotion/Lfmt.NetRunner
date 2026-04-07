@@ -48,9 +48,8 @@ public class DeployService
             var appDir = _appManager.GetAppDir(appName);
             var sourceDir = Path.Combine(appDir, "source");
 
-            // Clean up any previous source
-            if (Directory.Exists(sourceDir))
-                Directory.Delete(sourceDir, true);
+            // Clean up previous source and v_new (may be owned by app user)
+            await _systemd.CleanDeploy(appName);
             Directory.CreateDirectory(sourceDir);
 
             // Extract archive
@@ -94,9 +93,8 @@ public class DeployService
             var appDir = _appManager.GetAppDir(appName);
             var sourceDir = Path.Combine(appDir, "source");
 
-            // Clean up
-            if (Directory.Exists(sourceDir))
-                Directory.Delete(sourceDir, true);
+            // Clean up previous source and v_new (may be owned by app user)
+            await _systemd.CleanDeploy(appName);
 
             // Validate branch name to prevent command injection
             if (!Regex.IsMatch(branch, @"^[a-zA-Z0-9/_.\-]+$"))
@@ -190,9 +188,12 @@ public class DeployService
         var releasesDir = Path.Combine(appDir, "releases");
         var vNewDir = Path.Combine(releasesDir, "v_new");
 
-        // Clean up any previous v_new
+        // Ensure v_new is clean (source/ already cleaned by caller)
         if (Directory.Exists(vNewDir))
-            Directory.Delete(vNewDir, true);
+        {
+            try { Directory.Delete(vNewDir, true); }
+            catch { await _systemd.CleanDeploy(appName); }
+        }
 
         try
         {

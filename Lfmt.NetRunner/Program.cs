@@ -25,6 +25,9 @@ else
 if (!builder.Environment.IsDevelopment())
     builder.WebHost.UseUrls($"http://{runnerConfig.Listen}");
 
+// Max upload size from settings (default 100 MB)
+builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 100 * 1024 * 1024);
+
 // Register services
 builder.Services.AddSingleton(runnerConfig);
 builder.Services.AddSingleton<SystemdService>();

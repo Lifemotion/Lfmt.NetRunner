@@ -24,6 +24,7 @@ public class SystemdService
     public Task<string> DaemonReload() => RunSudo("daemon-reload");
     public Task<string> InstallServiceFile(string appName) => RunSudo("install-service", appName);
     public Task<string> InitApp(string appName) => RunSudo("init-app", appName);
+    public Task<string> CleanDeploy(string appName) => RunSudo("clean-deploy", appName);
     public Task<string> CreateUser(string appName) => RunSudo("create-user", appName);
     public Task<string> DeleteUser(string appName) => RunSudo("delete-user", appName);
     public Task<string> ChownApp(string appName) => RunSudo("chown-app", appName);
