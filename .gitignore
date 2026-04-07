@@ -7,3 +7,4 @@ dev-apps/
 testapp/testapp-*.zip
 testapp/_publish/
 testapp/_source/
+nr-publish/
