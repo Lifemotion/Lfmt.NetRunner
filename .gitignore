@@ -4,3 +4,6 @@ publish/
 dev-apps/
 *.user
 .vs/
+testapp/testapp-*.zip
+testapp/_publish/
+testapp/_source/

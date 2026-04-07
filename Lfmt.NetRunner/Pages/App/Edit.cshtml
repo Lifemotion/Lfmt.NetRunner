@@ -17,10 +17,17 @@
         <input type="number" name="Input.Port" value="@Model.Input.Port" required min="1024" max="65535" />
     </label>
 
-    <label>
-        Project path (.csproj)
-        <input type="text" name="Input.Project" value="@Model.Input.Project" required />
-    </label>
+    <fieldset>
+        <legend>Deploy Mode</legend>
+        <label>
+            Project path (.csproj)
+            <input type="text" name="Input.Project" value="@Model.Input.Project" />
+        </label>
+        <label>
+            DLL name
+            <input type="text" name="Input.Dll" value="@Model.Input.Dll" />
+        </label>
+    </fieldset>
 
     <fieldset>
         <legend>Health Check</legend>

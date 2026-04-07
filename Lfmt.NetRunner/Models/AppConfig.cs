@@ -6,6 +6,9 @@ public class AppConfig
     public string Name { get; set; } = "";
     public int Port { get; set; } = 5000;
     public string Project { get; set; } = "";
+    public string? Dll { get; set; }
+
+    public bool IsSourceMode => !string.IsNullOrEmpty(Project);
 
     // [health]
     public string HealthPath { get; set; } = "/health";
@@ -33,6 +36,7 @@ public class AppConfig
             if (app.TryGetValue("name", out var name)) config.Name = name;
             if (app.TryGetValue("port", out var port) && int.TryParse(port, out var p)) config.Port = p;
             if (app.TryGetValue("project", out var project)) config.Project = project;
+            if (app.TryGetValue("dll", out var dll)) config.Dll = dll;
         }
 
         if (ini.TryGetValue("health", out var health))
@@ -71,20 +75,23 @@ public class AppConfig
             {
                 ["name"] = Name,
                 ["port"] = Port.ToString(),
-                ["project"] = Project
             },
-            ["health"] = new()
-            {
-                ["path"] = HealthPath,
-                ["phrase"] = HealthPhrase,
-                ["timeout"] = HealthTimeoutSeconds.ToString(),
-                ["interval"] = HealthIntervalSeconds.ToString()
-            },
-            ["resources"] = new()
-            {
-                ["memory"] = Memory,
-                ["cpu"] = Cpu
-            }
+        };
+
+        if (!string.IsNullOrEmpty(Project)) ini["app"]["project"] = Project;
+        if (!string.IsNullOrEmpty(Dll)) ini["app"]["dll"] = Dll;
+
+        ini["health"] = new()
+        {
+            ["path"] = HealthPath,
+            ["phrase"] = HealthPhrase,
+            ["timeout"] = HealthTimeoutSeconds.ToString(),
+            ["interval"] = HealthIntervalSeconds.ToString()
+        };
+        ini["resources"] = new()
+        {
+            ["memory"] = Memory,
+            ["cpu"] = Cpu
         };
 
         if (EnvironmentVariables.Count > 0)
@@ -100,7 +107,10 @@ public class AppConfig
 
     public string GetDllName()
     {
-        var csproj = Path.GetFileNameWithoutExtension(Project);
-        return csproj + ".dll";
+        if (!string.IsNullOrEmpty(Dll))
+            return Dll;
+        if (!string.IsNullOrEmpty(Project))
+            return Path.GetFileNameWithoutExtension(Project) + ".dll";
+        return Name + ".dll";
     }
 }

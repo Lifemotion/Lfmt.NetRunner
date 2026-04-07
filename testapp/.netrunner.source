@@ -1,0 +1,14 @@
+[app]
+name = test-app-source
+port = 5100
+project = TestApp/TestApp.csproj
+
+[health]
+path = /health
+phrase = Healthy
+timeout = 15
+interval = 2
+
+[resources]
+memory = 128M
+cpu = 50%

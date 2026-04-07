@@ -169,30 +169,39 @@ public class DeployService
 
         try
         {
-            // Build
-            var projectPath = Path.Combine(sourceDir, appConfig.Project);
-            if (!File.Exists(projectPath))
-                throw new InvalidOperationException($"Project file not found: {appConfig.Project}");
-
-            _logger.LogInformation("Building {App}: dotnet publish", appName);
-            var buildResult = await RunProcess(_config.DotnetPath,
-                $"publish \"{projectPath}\" -c Release -o \"{vNewDir}\"",
-                workingDir: sourceDir,
-                timeoutSeconds: 600);
-
-            if (!buildResult.Success)
+            if (appConfig.IsSourceMode)
             {
-                await _appManager.AppendDeployLog(appName, new DeploymentLogEntry
+                // Source mode: build with dotnet publish
+                var projectPath = Path.Combine(sourceDir, appConfig.Project);
+                if (!File.Exists(projectPath))
+                    throw new InvalidOperationException($"Project file not found: {appConfig.Project}");
+
+                _logger.LogInformation("Building {App}: dotnet publish", appName);
+                var buildResult = await RunProcess(_config.DotnetPath,
+                    $"publish \"{projectPath}\" -c Release -o \"{vNewDir}\"",
+                    workingDir: sourceDir,
+                    timeoutSeconds: 600);
+
+                if (!buildResult.Success)
                 {
-                    Timestamp = DateTimeOffset.UtcNow,
-                    Action = "DEPLOY",
-                    Result = "FAILURE",
-                    Message = $"Build failed: {buildResult.Error}",
-                    Commit = commitId,
-                });
-                CleanupDir(vNewDir);
-                CleanupDir(sourceDir);
-                return false;
+                    await _appManager.AppendDeployLog(appName, new DeploymentLogEntry
+                    {
+                        Timestamp = DateTimeOffset.UtcNow,
+                        Action = "DEPLOY",
+                        Result = "FAILURE",
+                        Message = $"Build failed: {buildResult.Error}",
+                        Commit = commitId,
+                    });
+                    CleanupDir(vNewDir);
+                    CleanupDir(sourceDir);
+                    return false;
+                }
+            }
+            else
+            {
+                // Artifact mode: copy published files directly
+                _logger.LogInformation("Deploying pre-built artifacts for {App}", appName);
+                CopyDirectory(sourceDir, vNewDir);
             }
 
             // Verify DLL exists
@@ -390,6 +399,15 @@ public class DeployService
     {
         if (Directory.Exists(path))
             Directory.Delete(path, true);
+    }
+
+    private static void CopyDirectory(string sourceDir, string destDir)
+    {
+        Directory.CreateDirectory(destDir);
+        foreach (var file in Directory.GetFiles(sourceDir))
+            File.Copy(file, Path.Combine(destDir, Path.GetFileName(file)));
+        foreach (var dir in Directory.GetDirectories(sourceDir))
+            CopyDirectory(dir, Path.Combine(destDir, Path.GetFileName(dir)));
     }
 
     private static string? FindNetrunnerFile(string dir)

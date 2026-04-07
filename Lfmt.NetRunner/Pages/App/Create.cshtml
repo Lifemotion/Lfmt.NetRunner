@@ -24,11 +24,20 @@
         <input type="number" name="Port" value="@Model.Input.Port" required min="1024" max="65535" />
     </label>
 
-    <label>
-        Project path (.csproj)
-        <input type="text" name="Project" value="@Model.Input.Project" required
-               placeholder="src/MyApp/MyApp.csproj" />
-    </label>
+    <fieldset>
+        <legend>Deploy Mode</legend>
+        <label>
+            Project path (.csproj) — for source deploy
+            <input type="text" name="Project" value="@Model.Input.Project"
+                   placeholder="src/MyApp/MyApp.csproj" />
+        </label>
+        <label>
+            DLL name — for pre-built artifact deploy
+            <input type="text" name="Dll" value="@Model.Input.Dll"
+                   placeholder="MyApp.dll" />
+        </label>
+        <small>Set <strong>project</strong> for source archives (NetRunner will build), or <strong>DLL</strong> for pre-built artifacts. At least one is required.</small>
+    </fieldset>
 
     <fieldset>
         <legend>Health Check</legend>

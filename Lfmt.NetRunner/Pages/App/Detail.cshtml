@@ -32,7 +32,8 @@
 
 <h2>Configuration</h2>
 <table>
-    <tr><td>Project</td><td>@Model.Config.Project</td></tr>
+    <tr><td>Mode</td><td>@(Model.Config.IsSourceMode ? "Source" : "Artifact")</td></tr>
+    <tr><td>@(Model.Config.IsSourceMode ? "Project" : "DLL")</td><td>@(Model.Config.IsSourceMode ? Model.Config.Project : Model.Config.GetDllName())</td></tr>
     <tr><td>Health check</td><td>@Model.Config.HealthPath (phrase: "@Model.Config.HealthPhrase")</td></tr>
     <tr><td>Resources</td><td>Memory: @Model.Config.Memory, CPU: @Model.Config.Cpu</td></tr>
     <tr><td>Last deploy</td><td>@(Model.State.LastDeployedAt?.ToString("g") ?? "Never")</td></tr>
