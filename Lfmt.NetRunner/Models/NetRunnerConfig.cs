@@ -12,6 +12,9 @@ public class NetRunnerConfig
     public string SudoScript { get; set; } = "/opt/netrunner/netrunner-sudo.sh";
     public Dictionary<string, string> WebhookRepoMapping { get; set; } = new();
     public string HostIp { get; set; } = GetLocalIpv4();
+    public string? AuthUser { get; set; }
+    public string? AuthPassword { get; set; }
+    public bool AuthEnabled => !string.IsNullOrEmpty(AuthUser) && !string.IsNullOrEmpty(AuthPassword);
 
     private static string GetLocalIpv4()
     {
@@ -50,6 +53,12 @@ public class NetRunnerConfig
             if (paths.TryGetValue("apps_root", out var appsRoot)) config.AppsRoot = appsRoot;
             if (paths.TryGetValue("dotnet_path", out var dotnetPath)) config.DotnetPath = dotnetPath;
             if (paths.TryGetValue("sudo_script", out var sudoScript)) config.SudoScript = sudoScript;
+        }
+
+        if (ini.TryGetValue("auth", out var auth))
+        {
+            if (auth.TryGetValue("user", out var user)) config.AuthUser = user;
+            if (auth.TryGetValue("password", out var password)) config.AuthPassword = password;
         }
 
         if (ini.TryGetValue("webhooks", out var webhooks))

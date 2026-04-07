@@ -1,5 +1,6 @@
 using Lfmt.NetRunner.Models;
 using Lfmt.NetRunner.Services;
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,12 +41,22 @@ builder.Services.AddControllers(options =>
     options.Filters.Add<Lfmt.NetRunner.Filters.ApiExceptionFilter>();
 });
 
+// Cookie authentication (used when [auth] is configured)
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/Login";
+        options.ExpireTimeSpan = TimeSpan.FromDays(7);
+    });
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error");
 
 app.UseRouting();
+app.UseAuthentication();
+app.UseMiddleware<AuthMiddleware>();
 app.MapStaticAssets();
 app.MapRazorPages().WithStaticAssets();
 app.MapControllers();

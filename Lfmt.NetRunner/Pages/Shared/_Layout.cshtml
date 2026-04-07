@@ -18,6 +18,10 @@
                 <li><a href="/App/Create">Deploy New</a></li>
                 <li><a href="/Logs">Logs</a></li>
                 <li><a href="/Settings">Settings</a></li>
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <li><a href="/Logout">Logout</a></li>
+                }
             </ul>
         </nav>
     </header>

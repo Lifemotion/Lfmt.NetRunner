@@ -1,0 +1,38 @@
+@page
+@model Lfmt.NetRunner.Pages.LoginModel
+@{
+    ViewData["Title"] = "Login";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login - Lfmt.NetRunner</title>
+    <link rel="stylesheet" href="~/lib/picocss/css/pico.min.css" />
+</head>
+<body>
+    <main class="container" style="max-width: 400px; margin-top: 10vh;">
+        <h1>Lfmt.NetRunner</h1>
+
+        @if (!string.IsNullOrEmpty(Model.Error))
+        {
+            <article aria-label="Error" style="background: var(--pico-del-color);">@Model.Error</article>
+        }
+
+        <form method="post">
+            <label>
+                User
+                <input type="text" name="username" required autofocus />
+            </label>
+            <label>
+                Password
+                <input type="password" name="password" required />
+            </label>
+            <button type="submit">Login</button>
+        </form>
+    </main>
+</body>
+</html>
