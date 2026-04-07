@@ -260,7 +260,9 @@ public class DeployService
             string? customContent = null;
             if (!string.IsNullOrEmpty(appConfig.CustomServiceFile))
             {
-                var customPath = Path.Combine(sourceDir, appConfig.CustomServiceFile);
+                var customPath = Path.GetFullPath(Path.Combine(sourceDir, appConfig.CustomServiceFile));
+                if (!customPath.StartsWith(Path.GetFullPath(sourceDir), StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException($"Path traversal in custom_file: {appConfig.CustomServiceFile}");
                 if (File.Exists(customPath))
                     customContent = await File.ReadAllTextAsync(customPath);
             }

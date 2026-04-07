@@ -90,7 +90,7 @@ public class ServiceFileGenerator
         // Clean up empty lines from unused placeholders
         var lines = content.Split('\n')
             .Select(l => l.TrimEnd())
-            .Where(l => l.Length > 0 || true);
+            .Where(l => l.Length > 0);
 
         return string.Join("\n", lines).Trim() + "\n";
     }

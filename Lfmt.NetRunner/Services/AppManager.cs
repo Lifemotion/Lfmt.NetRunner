@@ -9,6 +9,7 @@ public partial class AppManager
     private readonly NetRunnerConfig _config;
     private readonly SystemdService _systemd;
     private readonly ILogger<AppManager> _logger;
+    private readonly Lock _appsLock = new();
     private readonly Dictionary<string, AppConfig> _apps = new();
 
     [GeneratedRegex(@"^[a-z0-9][a-z0-9-]{0,46}[a-z0-9]$")]
@@ -22,10 +23,15 @@ public partial class AppManager
         LoadAllApps();
     }
 
-    public IReadOnlyCollection<string> GetAllAppNames() => _apps.Keys.ToList();
+    public IReadOnlyCollection<string> GetAllAppNames()
+    {
+        lock (_appsLock) return _apps.Keys.ToList();
+    }
 
-    public AppConfig? GetAppConfig(string name) =>
-        _apps.TryGetValue(name, out var config) ? config : null;
+    public AppConfig? GetAppConfig(string name)
+    {
+        lock (_appsLock) return _apps.TryGetValue(name, out var config) ? config : null;
+    }
 
     public async Task<AppState> GetAppState(string name)
     {
@@ -75,10 +81,13 @@ public partial class AppManager
 
     public async Task<List<(AppConfig Config, AppState State)>> GetAllApps()
     {
+        List<(string Name, AppConfig Config)> snapshot;
+        lock (_appsLock)
+            snapshot = _apps.Select(kv => (kv.Key, kv.Value)).ToList();
+
         var result = new List<(AppConfig, AppState)>();
-        foreach (var name in _apps.Keys)
+        foreach (var (name, config) in snapshot)
         {
-            var config = _apps[name];
             var state = await GetAppState(name);
             result.Add((config, state));
         }
@@ -88,10 +97,12 @@ public partial class AppManager
     public async Task CreateApp(AppConfig config)
     {
         ValidateAppName(config.Name);
-        if (_apps.ContainsKey(config.Name))
-            throw new InvalidOperationException($"App '{config.Name}' already exists");
-
-        ValidatePort(config.Port, config.Name);
+        lock (_appsLock)
+        {
+            if (_apps.ContainsKey(config.Name))
+                throw new InvalidOperationException($"App '{config.Name}' already exists");
+            ValidatePort(config.Port, config.Name);
+        }
 
         // Create user, directories, set ownership so our process can write
         await _systemd.CreateUser(config.Name);
@@ -106,31 +117,36 @@ public partial class AppManager
         // Create empty env file via sudo
         await _systemd.WriteEnv(config.Name, "");
 
-        _apps[config.Name] = config;
+        lock (_appsLock) _apps[config.Name] = config;
         _logger.LogInformation("Created app {Name}", config.Name);
     }
 
     public async Task UpdateApp(string name, AppConfig config)
     {
-        if (!_apps.ContainsKey(name))
-            throw new InvalidOperationException($"App '{name}' not found");
-
-        if (config.Port != _apps[name].Port)
-            ValidatePort(config.Port, name);
+        lock (_appsLock)
+        {
+            if (!_apps.ContainsKey(name))
+                throw new InvalidOperationException($"App '{name}' not found");
+            if (config.Port != _apps[name].Port)
+                ValidatePort(config.Port, name);
+        }
 
         config.Name = name;
         var appDir = GetAppDir(name);
         var ini = config.ToIni();
         await File.WriteAllTextAsync(Path.Combine(appDir, "config.ini"), IniParser.Serialize(ini));
 
-        _apps[name] = config;
+        lock (_appsLock) _apps[name] = config;
         _logger.LogInformation("Updated app {Name}", name);
     }
 
     public async Task DeleteApp(string name)
     {
-        if (!_apps.ContainsKey(name))
-            throw new InvalidOperationException($"App '{name}' not found");
+        lock (_appsLock)
+        {
+            if (!_apps.ContainsKey(name))
+                throw new InvalidOperationException($"App '{name}' not found");
+        }
 
         try { await _systemd.Stop(name); } catch { /* may not be running */ }
         try { await _systemd.Disable(name); } catch { /* may not be enabled */ }
@@ -140,7 +156,7 @@ public partial class AppManager
         if (Directory.Exists(appDir))
             Directory.Delete(appDir, true);
 
-        _apps.Remove(name);
+        lock (_appsLock) _apps.Remove(name);
         _logger.LogInformation("Deleted app {Name}", name);
     }
 
