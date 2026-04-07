@@ -8,7 +8,7 @@
 
 @if (Model.Apps.Count == 0)
 {
-    <p>No applications registered. <a href="/App/Create">Create one</a>.</p>
+    <p>No applications registered. <a href="/App/Create">Deploy one</a>.</p>
 }
 else
 {
@@ -46,3 +46,16 @@ else
         </tbody>
     </table>
 }
+
+<details>
+    <summary>System Info</summary>
+    <table>
+        <tr><td>Hostname</td><td>@Model.Hostname</td></tr>
+        <tr><td>OS</td><td>@Model.OsInfo</td></tr>
+        <tr><td>Runtime</td><td>@Model.DotnetVersion</td></tr>
+        <tr><td>Environment</td><td>@Model.Environment</td></tr>
+        <tr><td>Listen</td><td>@Model.ListenUrl</td></tr>
+        <tr><td>Apps root</td><td>@Model.AppsRoot</td></tr>
+        <tr><td>Apps</td><td>@Model.AppCount</td></tr>
+    </table>
+</details>

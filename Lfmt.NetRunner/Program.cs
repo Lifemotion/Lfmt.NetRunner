@@ -5,9 +5,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Load NetRunner config
 var configPath = Environment.GetEnvironmentVariable("NETRUNNER_CONFIG")
-    ?? (builder.Environment.IsDevelopment()
-        ? Path.Combine(Directory.GetCurrentDirectory(), "netrunner.dev.conf")
-        : "/var/lib/netrunner/netrunner.conf");
+    ?? (OperatingSystem.IsLinux()
+        ? "/var/lib/netrunner/netrunner.conf"
+        : Path.Combine(Directory.GetCurrentDirectory(), "netrunner.dev.conf"));
 
 NetRunnerConfig runnerConfig;
 if (File.Exists(configPath))

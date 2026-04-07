@@ -85,22 +85,18 @@ public partial class AppManager
 
         ValidatePort(config.Port, config.Name);
 
-        var appDir = GetAppDir(config.Name);
-        Directory.CreateDirectory(appDir);
-        Directory.CreateDirectory(Path.Combine(appDir, "releases"));
+        // Create user, directories, set ownership so our process can write
+        await _systemd.CreateUser(config.Name);
+        await _systemd.InitApp(config.Name);
+        await _systemd.ChownApp(config.Name);
 
-        // Write config
+        // Now we can write (group netrunner has rwx)
+        var appDir = GetAppDir(config.Name);
         var ini = config.ToIni();
         await File.WriteAllTextAsync(Path.Combine(appDir, "config.ini"), IniParser.Serialize(ini));
 
-        // Create system user
-        await _systemd.CreateUser(config.Name);
-
         // Create empty env file via sudo
         await _systemd.WriteEnv(config.Name, "");
-
-        // Set ownership
-        await _systemd.ChownApp(config.Name);
 
         _apps[config.Name] = config;
         _logger.LogInformation("Created app {Name}", config.Name);

@@ -340,16 +340,19 @@ public class DeployService
 
     private static void AtomicSymlinkSwap(string linkPath, string target)
     {
-        var tmpPath = linkPath + ".tmp";
-        // Remove stale tmp if exists
-        if (Path.Exists(tmpPath))
-            File.Delete(tmpPath);
+        var dir = Path.GetDirectoryName(linkPath)!;
+        var name = Path.GetFileName(linkPath);
 
-        // Create symlink with temp name, then atomic rename
-        File.CreateSymbolicLink(tmpPath, target);
-
-        // rename(2) is atomic on Linux
-        File.Move(tmpPath, linkPath, overwrite: true);
+        // ln -sfn creates symlink atomically with rename
+        var psi = new ProcessStartInfo
+        {
+            FileName = "ln",
+            Arguments = $"-sfn {target} {name}",
+            WorkingDirectory = dir,
+            UseShellExecute = false,
+        };
+        using var process = Process.Start(psi)!;
+        process.WaitForExit();
     }
 
     private async Task<ProcessResult> RunProcess(string fileName, string arguments,

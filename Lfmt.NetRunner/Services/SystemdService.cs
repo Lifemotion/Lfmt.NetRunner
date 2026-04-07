@@ -13,7 +13,7 @@ public class SystemdService
     {
         _config = config;
         _logger = logger;
-        _devMode = env.IsDevelopment() || !OperatingSystem.IsLinux();
+        _devMode = !OperatingSystem.IsLinux();
     }
 
     public Task<string> Start(string appName) => RunSudo("start", appName);
@@ -23,6 +23,7 @@ public class SystemdService
     public Task<string> Disable(string appName) => RunSudo("disable", appName);
     public Task<string> DaemonReload() => RunSudo("daemon-reload");
     public Task<string> InstallServiceFile(string appName) => RunSudo("install-service", appName);
+    public Task<string> InitApp(string appName) => RunSudo("init-app", appName);
     public Task<string> CreateUser(string appName) => RunSudo("create-user", appName);
     public Task<string> DeleteUser(string appName) => RunSudo("delete-user", appName);
     public Task<string> ChownApp(string appName) => RunSudo("chown-app", appName);

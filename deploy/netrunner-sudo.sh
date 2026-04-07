@@ -42,10 +42,18 @@ case "${1:-}" in
         journalctl -u "netrunner-$2" -n "$lines" --no-pager
         ;;
 
+    # --- App directory setup ---
+    init-app)
+        validate_name "$2"
+        mkdir -p "$APPS_ROOT/$2/releases"
+        chown -R "netrunner-$2:netrunner" "$APPS_ROOT/$2"
+        chmod -R g+rwx "$APPS_ROOT/$2"
+        ;;
+
     # --- User management ---
     create-user)
         validate_name "$2"
-        useradd -r -s /usr/sbin/nologin "netrunner-$2"
+        id "netrunner-$2" &>/dev/null || useradd -r -s /usr/sbin/nologin "netrunner-$2"
         ;;
     delete-user)
         validate_name "$2"
@@ -55,7 +63,8 @@ case "${1:-}" in
     # --- File ownership ---
     chown-app)
         validate_name "$2"
-        chown -R "netrunner-$2:netrunner-$2" "$APPS_ROOT/$2"
+        chown -R "netrunner-$2:netrunner" "$APPS_ROOT/$2"
+        chmod -R g+rwx "$APPS_ROOT/$2"
         # env stays root-owned
         if [[ -f "$APPS_ROOT/$2/env" ]]; then
             chown root:root "$APPS_ROOT/$2/env"
