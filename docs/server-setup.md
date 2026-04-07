@@ -48,37 +48,29 @@ sudo chown netrunner:netrunner /var/lib/netrunner/netrunner.conf
 sudo chmod 600 /var/lib/netrunner/netrunner.conf
 ```
 
-## 5. Configure sudoers
+## 5. Install Privileged Wrapper Script
+
+All privileged operations go through a single validated wrapper script instead of direct sudo commands with wildcards (which are vulnerable to path traversal).
+
+```bash
+sudo cp deploy/netrunner-sudo.sh /opt/netrunner/netrunner-sudo.sh
+sudo chown root:root /opt/netrunner/netrunner-sudo.sh
+sudo chmod 755 /opt/netrunner/netrunner-sudo.sh
+sudo chattr +i /opt/netrunner/netrunner-sudo.sh
+```
+
+## 6. Configure sudoers
 
 ```bash
 sudo tee /etc/sudoers.d/netrunner > /dev/null << 'EOF'
-# Service management (netrunner-* prefix only)
-netrunner ALL=(root) NOPASSWD: /usr/bin/systemctl start netrunner-*
-netrunner ALL=(root) NOPASSWD: /usr/bin/systemctl stop netrunner-*
-netrunner ALL=(root) NOPASSWD: /usr/bin/systemctl restart netrunner-*
-netrunner ALL=(root) NOPASSWD: /usr/bin/systemctl status netrunner-*
-netrunner ALL=(root) NOPASSWD: /usr/bin/systemctl enable netrunner-*
-netrunner ALL=(root) NOPASSWD: /usr/bin/systemctl disable netrunner-*
-netrunner ALL=(root) NOPASSWD: /usr/bin/systemctl daemon-reload
-
-# Service file installation
-netrunner ALL=(root) NOPASSWD: /usr/bin/cp /var/lib/netrunner/apps/*/app.service /etc/systemd/system/netrunner-*.service
-
-# Log access
-netrunner ALL=(root) NOPASSWD: /usr/bin/journalctl -u netrunner-* *
-
-# App user management
-netrunner ALL=(root) NOPASSWD: /usr/sbin/useradd -r -s /usr/sbin/nologin netrunner-*
-netrunner ALL=(root) NOPASSWD: /usr/sbin/userdel netrunner-*
-
-# File ownership management
-netrunner ALL=(root) NOPASSWD: /usr/bin/chown -R netrunner-*\:netrunner-* /var/lib/netrunner/apps/*
+# All privileged ops go through the validated wrapper script
+netrunner ALL=(root) NOPASSWD: /opt/netrunner/netrunner-sudo.sh *
 EOF
 
 sudo chmod 440 /etc/sudoers.d/netrunner
 ```
 
-## 6. Install NetRunner
+## 7. Install NetRunner
 
 ### Build (on development machine)
 
@@ -108,7 +100,7 @@ sudo systemctl enable netrunner
 sudo systemctl start netrunner
 ```
 
-## 7. Verify
+## 8. Verify
 
 ```bash
 # Service status
@@ -121,7 +113,7 @@ sudo journalctl -u netrunner -f
 curl http://127.0.0.1:5050/
 ```
 
-## 8. Teleport Configuration (optional)
+## 9. Teleport Configuration (optional)
 
 If NetRunner is behind Teleport proxy, configure app access:
 
@@ -134,7 +126,7 @@ app_service:
       uri: http://127.0.0.1:5050
 ```
 
-## 9. Forgejo Configuration (optional)
+## 10. Forgejo Configuration (optional)
 
 In the Forgejo repository: Settings → Webhooks → Add Webhook:
 

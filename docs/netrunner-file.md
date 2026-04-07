@@ -105,6 +105,8 @@ Secrets (API keys, passwords) are set separately via the UI → saved to the `en
 # extra_directives = ReadWritePaths=/var/data/my-app
 ```
 
+**Security note:** Even in custom service files, NetRunner **always force-overrides** security-critical directives: `User=`, `Group=`, all hardening directives (`ProtectSystem`, `NoNewPrivileges`, etc.), and `EnvironmentFile`. This prevents privilege escalation. Allowed customizations: `WorkingDirectory`, `Environment`, `ReadWritePaths`, `ExecStart` arguments.
+
 ## Full Example
 
 ```ini

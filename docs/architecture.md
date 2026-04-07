@@ -61,6 +61,7 @@ Lfmt.NetRunner/
     deploy/
         netrunner.service               # Systemd unit for NetRunner itself
         netrunner-sudoers               # sudoers file
+        netrunner-sudo.sh               # Privileged wrapper script
 ```
 
 ## Services
@@ -85,13 +86,14 @@ Core deployment logic. Sequential execution per app (SemaphoreSlim per app name)
 
 ### SystemdService (Singleton)
 
-Wrapper around `sudo systemctl` and `sudo journalctl`.
+Wrapper around the privileged wrapper script (`netrunner-sudo.sh`). All systemd operations go through `sudo /opt/netrunner/netrunner-sudo.sh <command> <app-name>` — never direct sudo calls with wildcard paths.
 
 - `Start/Stop/Restart/Enable/Disable(appName)`
-- `GetStatus(appName)` — parse `systemctl status` output into structured data
-- `GetJournalLogs(appName, lines)` — recent log lines from journalctl
+- `GetStatus(appName)` — parse status output into structured data
+- `GetJournalLogs(appName, lines)` — recent log lines
 - `DaemonReload()`
-- `InstallServiceFile(appName)` — copy .service to /etc/systemd/system/
+- `InstallServiceFile(appName)` — install .service via wrapper
+- `WriteEnv(appName, content)` — write env file via wrapper (maintains root:root 600)
 
 ### HealthCheckService
 
@@ -104,6 +106,7 @@ HTTP health check after deployment.
 
 Generates .service from template with `{{placeholder}}` substitution.
 If `.netrunner` specifies `custom_file` — uses that instead (with the same substitutions).
+Security-critical directives (`User=`, `Group=`, hardening) are always force-overridden from the template, even in custom files.
 
 ### ForgejoService (Singleton)
 
@@ -150,6 +153,7 @@ The API is used by both UI buttons (fetch) and potential CLI automation.
             config.ini              # Copy of .netrunner (authoritative config)
             current -> releases/v2/ # Symlink to active release
             releases/
+                v_new/              # Temporary: new build (before health check)
                 v1/                 # Previous version (for rollback)
                 v2/                 # Current version
             source/                 # Temporary: git clone or extracted archive
@@ -160,9 +164,9 @@ The API is used by both UI buttons (fetch) and potential CLI automation.
 
 ### Storage Principles
 
-- `current` is a symlink. Version switching is an atomic symlink swap (`ln -sfn`).
-- Two slots: `v1` (previous) and `v2` (current). On new deploy: v1 is deleted, v2 becomes v1, new build becomes v2.
+- `current` is a symlink. Switching uses atomic `rename(2)`: `ln -s <target> current.tmp && mv -T current.tmp current`.
+- New builds go into `v_new/`. Only after a successful health check does rotation happen: v1 deleted, v2 → v1, v_new → v2. This ensures v2 (last known-good) survives crashes during deploy.
 - `source/` is a temporary workspace, deleted after build completes.
 - `config.ini` is the authoritative config — a copy of `.netrunner` with possible edits from the UI.
-- `env` holds secrets not included in `.netrunner`. Managed via UI.
+- `env` holds secrets not included in `.netrunner`. Managed via UI, written through the privileged wrapper script to maintain `root:root 600` ownership.
 - `deploy.log` uses JSON Lines format (one JSON object per line). Append-only.

@@ -15,29 +15,51 @@ Read .netrunner from extracted source root
 Validate: port not conflicting, name matches, .csproj exists
     │
     ▼
-dotnet publish -c Release -o <temp-output>
-    │  (if build fails — report error, clean up source/)
+dotnet publish -c Release -o /var/lib/netrunner/apps/{name}/releases/v_new/
+    │  (if build fails — report error, clean up source/ and v_new/)
     ▼
-Release rotation:
-    rm -rf v1/ → mv v2/ v1/ → mv <output> v2/
+Generate/copy .service → install via wrapper script
     │
     ▼
-ln -sfn v2/ current    (atomic symlink swap)
+Atomic symlink swap to v_new/:
+    ln -s v_new current.tmp && mv -T current.tmp current
     │
     ▼
-Generate/copy .service → /etc/systemd/system/netrunner-{name}.service
-    │
-    ▼
-sudo systemctl daemon-reload
-sudo systemctl restart netrunner-{name}
+sudo netrunner-sudo.sh daemon-reload
+sudo netrunner-sudo.sh restart {name}
     │
     ▼
 Health check (loop)
     │
-    ├── OK → log to deploy.log, clean up source/
+    ├── OK:
+    │   Finalize release rotation:
+    │       rm -rf v1/
+    │       mv v2/ v1/  (if exists)
+    │       mv v_new/ v2/
+    │       ln -s v2 current.tmp && mv -T current.tmp current
+    │   Log to deploy.log, clean up source/
     │
     └── FAIL → auto-rollback (see below)
 ```
+
+### Why this order matters
+
+The build goes into `v_new/` — a temporary slot. The symlink switches to `v_new/` for testing, but `v1/` and `v2/` remain untouched. Only after a successful health check does the rotation happen. If the process crashes at any point:
+
+- `v2/` (the last known-good release) is still intact
+- `v1/` (the previous release) is still intact
+- Recovery: just point `current` back to `v2/`
+
+### Atomic symlink swap
+
+`ln -sfn` is **not** atomic — it calls `unlink()` + `symlink()`, leaving a gap where `current` doesn't exist. Instead:
+
+```bash
+ln -s v2 current.tmp    # create new symlink with temp name
+mv -T current.tmp current  # rename(2) — atomic on Linux
+```
+
+`mv -T` uses `rename(2)`, which atomically replaces the old symlink.
 
 ## 2. Forgejo Webhook
 
@@ -48,20 +70,23 @@ Forgejo push → POST /api/webhook/forgejo
 Verify HMAC-SHA256 signature (X-Forgejo-Signature)
     │  (on mismatch → 403)
     ▼
-Parse payload: clone_url, branch, commit
+Parse payload: extract repo clone_url and branch
     │
     ▼
-Map repo_url → app_name (from netrunner.conf [webhooks])
+Lookup: match payload clone_url → app_name (from netrunner.conf [webhooks])
     │  (if no mapping → 404)
     ▼
 Check branch (deploy only from configured branch, default: main)
     │  (other branch → 200 OK, no action)
     ▼
-git clone --depth 1 --branch {branch} {clone_url} .../source/
+git clone using the URL from netrunner.conf (NOT from payload):
+    git clone --depth 1 --branch {branch} {config_clone_url} .../source/
     │
     ▼
 Continue from step 3 of the Archive Upload flow
 ```
+
+**Important:** The clone URL from the webhook payload is used only to look up the app name in the `[webhooks]` mapping. The actual `git clone` always uses the URL stored in `netrunner.conf`. This prevents an attacker who knows the webhook secret from injecting a malicious repository.
 
 ### Webhook Mapping in netrunner.conf
 
@@ -102,29 +127,33 @@ On health check failure:
 Health check FAILED
     │
     ▼
-Does v1/ (previous version) exist?
+Does v2/ (previous known-good version) exist?
     │
     ├── Yes:
-    │   ln -sfn v1/ current
-    │   sudo systemctl restart netrunner-{name}
-    │   Health check v1
+    │   Atomic symlink swap back to v2/:
+    │       ln -s v2 current.tmp && mv -T current.tmp current
+    │   sudo netrunner-sudo.sh restart {name}
+    │   Health check v2
     │       │
     │       ├── OK → deploy.log: "ROLLBACK SUCCESSFUL"
+    │       │        Clean up v_new/
     │       │
-    │       └── FAIL → sudo systemctl stop netrunner-{name}
+    │       └── FAIL → sudo netrunner-sudo.sh stop {name}
     │                  deploy.log: "ROLLBACK FAILED, SERVICE STOPPED"
     │
     └── No (first deploy):
-        sudo systemctl stop netrunner-{name}
+        sudo netrunner-sudo.sh stop {name}
         deploy.log: "FIRST DEPLOY FAILED, NO ROLLBACK, SERVICE STOPPED"
 ```
+
+Note: during rollback, `v_new/` still exists (the failed release). It is cleaned up after successful rollback, or kept for debugging if rollback also fails.
 
 ## 5. Manual Rollback
 
 Via UI (Rollback button) or API (`POST /api/apps/{name}/rollback`):
 
-1. `ln -sfn v1/ current`
-2. `sudo systemctl restart netrunner-{name}`
+1. `ln -s v1 current.tmp && mv -T current.tmp current`
+2. `sudo netrunner-sudo.sh restart {name}`
 3. Health check runs → result logged
 4. No automatic cascading rollback
 

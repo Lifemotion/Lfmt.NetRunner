@@ -26,21 +26,25 @@
 
 ## 4. Symlink-based release switching
 
-**Decision:** `current` is a symlink to the active release (`v1` or `v2`). Switching is an atomic `ln -sfn`.
+**Decision:** `current` is a symlink to the active release. Switching uses atomic `rename(2)` via `ln -s <target> current.tmp && mv -T current.tmp current`.
 
 **Why:** Zero downtime during file copy. systemd `WorkingDirectory` and `ExecStart` point through `current`, so a symlink swap + `systemctl restart` is all that's needed.
 
-## 5. Two release slots (v1/v2)
+**Note:** `ln -sfn` is NOT atomic — it calls `unlink()` + `symlink()`, leaving a gap. `mv -T` uses `rename(2)`, which is truly atomic on Linux filesystems.
 
-**Decision:** Keep only the current and previous versions.
+## 5. Two release slots (v1/v2) with crash-safe rotation
 
-**Why:** One rollback level is sufficient for a self-hosted tool. N versions add complexity and disk usage.
+**Decision:** Keep only the current and previous versions. New builds go into a temporary `v_new/` slot; rotation to `v1`/`v2` happens only after a successful health check.
 
-**Rotation:**
+**Why:** One rollback level is sufficient for a self-hosted tool. Building into `v_new/` first ensures that `v1` and `v2` remain intact if the process crashes mid-deploy.
+
+**Rotation (after successful health check):**
 1. `rm -rf v1/`
-2. `mv v2/ v1/`
-3. New build → `v2/`
-4. `ln -sfn v2/ current`
+2. `mv v2/ v1/` (if exists)
+3. `mv v_new/ v2/`
+4. Atomic symlink swap to `v2/`
+
+If the deploy fails or the process crashes at any point before finalization, `v2/` (the last known-good release) is still available for recovery.
 
 ## 6. `netrunner-` prefix for systemd units
 
@@ -98,6 +102,18 @@
 
 ## 15. Service file generation with custom override
 
-**Decision:** Default generation from a built-in template. Optionally, a custom .service file via `custom_file` in `.netrunner`.
+**Decision:** Default generation from a built-in template. Optionally, a custom .service file via `custom_file` in `.netrunner`. Security-critical directives (`User=`, `Group=`, hardening) are **always force-overridden** from the template, even in custom files.
 
-**Why:** 90% of apps are standard — the template covers them. For non-standard cases (special mounts, dependencies), full control is available.
+**Why:** 90% of apps are standard — the template covers them. For non-standard cases (special mounts, dependencies), partial customization is available. Force-overriding security directives prevents privilege escalation via a malicious custom service file.
+
+## 16. Privileged wrapper script instead of direct sudo
+
+**Decision:** All privileged operations go through a single bash script (`/opt/netrunner/netrunner-sudo.sh`) with strict input validation. sudoers grants access only to this script.
+
+**Why:** Wildcard `*` in sudoers matches `/`, enabling path traversal attacks (e.g., `chown -R ... /var/lib/netrunner/apps/../../etc`). The wrapper validates app names against `^[a-z0-9][a-z0-9-]{0,46}[a-z0-9]$` and constructs all paths internally, eliminating path traversal.
+
+## 17. Webhook clone URL from config, not payload
+
+**Decision:** The clone URL from a Forgejo webhook payload is used only for lookup (matching to an app name). The actual `git clone` uses the URL stored in `netrunner.conf`.
+
+**Why:** An attacker who knows the webhook secret could send a forged payload with a malicious repository URL. Using the config URL ensures only pre-approved repositories are cloned and built.
