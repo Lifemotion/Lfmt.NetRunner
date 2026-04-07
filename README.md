@@ -20,13 +20,13 @@ Requires .NET 10 SDK on the server (for building apps from source).
 sudo apt install -y dotnet-sdk-10.0
 
 # Install NetRunner
-curl -sSL https://raw.githubusercontent.com/OWNER/Lfmt.NetRunner/main/deploy/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/Lifemotion/Lfmt.NetRunner/main/deploy/install.sh | bash
 ```
 
 ## Update
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/OWNER/Lfmt.NetRunner/main/deploy/update.sh | bash
+curl -sSL https://raw.githubusercontent.com/Lifemotion/Lfmt.NetRunner/main/deploy/update.sh | bash
 ```
 
 ## Usage

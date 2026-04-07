@@ -3,7 +3,7 @@
 # Usage: curl -sSL https://raw.githubusercontent.com/OWNER/Lfmt.NetRunner/main/deploy/install.sh | bash
 set -euo pipefail
 
-REPO="OWNER/Lfmt.NetRunner"  # TODO: replace with actual GitHub owner
+REPO="Lifemotion/Lfmt.NetRunner"
 INSTALL_DIR="/opt/netrunner"
 DATA_DIR="/var/lib/netrunner"
 APPS_DIR="$DATA_DIR/apps"
