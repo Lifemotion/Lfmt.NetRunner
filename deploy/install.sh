@@ -102,14 +102,7 @@ User=netrunner
 Group=netrunner
 Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=DOTNET_NOLOGO=1
-ProtectSystem=strict
-ReadWritePaths=$DATA_DIR
 PrivateTmp=true
-ProtectHome=true
-NoNewPrivileges=true
-ProtectKernelTunables=true
-ProtectKernelModules=true
-ProtectControlGroups=true
 PrivateDevices=true
 
 [Install]
