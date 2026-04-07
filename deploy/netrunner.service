@@ -14,6 +14,8 @@ Group=netrunner
 
 Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=DOTNET_NOLOGO=1
+Environment=DOTNET_CLI_HOME=/var/lib/netrunner
+Environment=HOME=/var/lib/netrunner
 
 # NetRunner needs sudo for user/service management, so strict
 # filesystem protection is not applicable here. Managed apps

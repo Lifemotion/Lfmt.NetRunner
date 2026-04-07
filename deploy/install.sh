@@ -110,6 +110,8 @@ User=netrunner
 Group=netrunner
 Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=DOTNET_NOLOGO=1
+Environment=DOTNET_CLI_HOME=$DATA_DIR
+Environment=HOME=$DATA_DIR
 PrivateTmp=true
 PrivateDevices=true
 
