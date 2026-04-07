@@ -49,56 +49,60 @@ app.MapRazorPages().WithStaticAssets();
 
 app.MapPost("/api/apps/{name}/start", async (string name, SystemdService systemd) =>
 {
-    await systemd.Start(name);
-    return Results.Ok();
+    try { await systemd.Start(name); return Results.Ok(new { ok = true }); }
+    catch (Exception ex) { return Results.Json(new { error = ex.Message }, statusCode: 500); }
 });
 
 app.MapPost("/api/apps/{name}/stop", async (string name, SystemdService systemd) =>
 {
-    await systemd.Stop(name);
-    return Results.Ok();
+    try { await systemd.Stop(name); return Results.Ok(new { ok = true }); }
+    catch (Exception ex) { return Results.Json(new { error = ex.Message }, statusCode: 500); }
 });
 
 app.MapPost("/api/apps/{name}/restart", async (string name, SystemdService systemd) =>
 {
-    await systemd.Restart(name);
-    return Results.Ok();
+    try { await systemd.Restart(name); return Results.Ok(new { ok = true }); }
+    catch (Exception ex) { return Results.Json(new { error = ex.Message }, statusCode: 500); }
 });
 
 app.MapPost("/api/apps/{name}/rollback", async (string name, DeployService deploy) =>
 {
-    var result = await deploy.Rollback(name);
-    return result ? Results.Ok() : Results.StatusCode(500);
+    try { var ok = await deploy.Rollback(name); return Results.Json(new { ok }, statusCode: ok ? 200 : 500); }
+    catch (Exception ex) { return Results.Json(new { error = ex.Message }, statusCode: 500); }
 });
 
 app.MapPost("/api/apps/{name}/delete", async (string name, AppManager appManager) =>
 {
-    await appManager.DeleteApp(name);
-    return Results.Ok();
+    try { await appManager.DeleteApp(name); return Results.Ok(new { ok = true }); }
+    catch (Exception ex) { return Results.Json(new { error = ex.Message }, statusCode: 500); }
 });
 
 app.MapPost("/api/apps/{name}/deploy", async (string name, HttpRequest request, DeployService deploy) =>
 {
-    var form = await request.ReadFormAsync();
-    var file = form.Files.FirstOrDefault();
-    if (file == null)
-        return Results.BadRequest("No file uploaded");
+    try
+    {
+        var form = await request.ReadFormAsync();
+        var file = form.Files.FirstOrDefault();
+        if (file == null)
+            return Results.Json(new { error = "No file uploaded" }, statusCode: 400);
 
-    using var stream = file.OpenReadStream();
-    var result = await deploy.DeployFromArchive(name, stream, file.FileName);
-    return result ? Results.Ok() : Results.StatusCode(500);
+        using var stream = file.OpenReadStream();
+        var ok = await deploy.DeployFromArchive(name, stream, file.FileName);
+        return Results.Json(new { ok }, statusCode: ok ? 200 : 500);
+    }
+    catch (Exception ex) { return Results.Json(new { error = ex.Message }, statusCode: 500); }
 });
 
 app.MapGet("/api/apps/{name}/status", async (string name, SystemdService systemd) =>
 {
-    var status = await systemd.GetAppStatus(name);
-    return Results.Ok(new { status = status.ToString() });
+    try { var status = await systemd.GetAppStatus(name); return Results.Ok(new { status = status.ToString() }); }
+    catch (Exception ex) { return Results.Json(new { error = ex.Message }, statusCode: 500); }
 });
 
-app.MapGet("/api/apps/{name}/logs", async (string name, SystemdService systemd) =>
+app.MapGet("/api/apps/{name}/logs", async (string name, SystemdService systemd, SettingsService settings) =>
 {
-    var logs = await systemd.GetJournalLogs(name);
-    return Results.Ok(new { logs });
+    try { var logs = await systemd.GetJournalLogs(name, settings.Current.JournalLines); return Results.Ok(new { logs }); }
+    catch (Exception ex) { return Results.Json(new { error = ex.Message }, statusCode: 500); }
 });
 
 app.MapPost("/api/webhook/forgejo", async (HttpContext ctx, ForgejoService forgejo, DeployService deploy, AppManager appManager) =>

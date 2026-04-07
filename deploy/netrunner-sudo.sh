@@ -13,7 +13,12 @@ validate_name() {
 
 case "${1:-}" in
     # --- systemctl commands ---
-    start|stop|restart|enable|disable)
+    start|restart)
+        validate_name "$2"
+        systemctl reset-failed "netrunner-$2" 2>/dev/null || true
+        systemctl "$1" "netrunner-$2"
+        ;;
+    stop|enable|disable)
         validate_name "$2"
         systemctl "$1" "netrunner-$2"
         ;;

@@ -3,7 +3,11 @@ async function apiPost(url, redirectTo) {
     if (resp.ok) {
         location.href = redirectTo || location.href;
     } else {
-        const text = await resp.text();
-        alert('Error: ' + text);
+        try {
+            const data = await resp.json();
+            alert('Error: ' + (data.error || resp.statusText));
+        } catch {
+            alert('Error: ' + resp.statusText);
+        }
     }
 }
