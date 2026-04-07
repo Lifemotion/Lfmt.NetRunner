@@ -38,6 +38,7 @@ public partial class AppManager
         // Read last deploy entry
         DateTimeOffset? lastDeployed = null;
         string? lastCommit = null;
+        string? lastResult = null;
         var logPath = Path.Combine(appDir, "deploy.log");
         if (File.Exists(logPath))
         {
@@ -50,6 +51,7 @@ public partial class AppManager
                 {
                     lastDeployed = entry.Timestamp;
                     lastCommit = entry.Commit;
+                    lastResult = entry.Result;
                 }
             }
         }
@@ -62,6 +64,7 @@ public partial class AppManager
             HasPreviousVersion = Directory.Exists(Path.Combine(appDir, "releases", "v1")),
             LastDeployedAt = lastDeployed,
             LastDeployCommit = lastCommit,
+            LastDeployResult = lastResult,
         };
     }
 

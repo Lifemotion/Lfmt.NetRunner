@@ -7,6 +7,7 @@ public class AppState
     public bool HasPreviousVersion { get; set; }
     public DateTimeOffset? LastDeployedAt { get; set; }
     public string? LastDeployCommit { get; set; }
+    public string? LastDeployResult { get; set; }
     public int Port { get; set; }
 }
 

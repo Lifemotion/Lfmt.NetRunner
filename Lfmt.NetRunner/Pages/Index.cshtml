@@ -4,7 +4,7 @@
     ViewData["Title"] = "Dashboard";
 }
 
-<h1>Applications</h1>
+<h1>Applications on @Model.Hostname</h1>
 
 @if (Model.Apps.Count == 0)
 {
@@ -17,6 +17,7 @@ else
             <tr>
                 <th>Name</th>
                 <th>Port</th>
+                <th>Mode</th>
                 <th>Status</th>
                 <th>Last Deploy</th>
                 <th>Actions</th>
@@ -27,9 +28,27 @@ else
             {
                 <tr>
                     <td><a href="/App/@config.Name">@config.Name</a></td>
-                    <td><a href="http://localhost:@config.Port/" target="_blank">@config.Port</a></td>
+                    <td><a href="http://@Model.HostIp:@config.Port/" target="_blank">@config.Port</a></td>
+                    <td>@(config.IsSourceMode ? "Source" : "Artifact")</td>
                     <td class="status-@state.Status.ToString().ToLower()">@state.Status</td>
-                    <td>@(state.LastDeployedAt?.ToString("g") ?? "Never")</td>
+                    <td>
+                        @if (state.LastDeployedAt != null)
+                        {
+                            <span>@Model.Settings.FormatTime(state.LastDeployedAt)</span>
+                            if (state.LastDeployResult == "SUCCESS")
+                            {
+                                <span class="status-running"> OK</span>
+                            }
+                            else if (state.LastDeployResult == "FAILURE")
+                            {
+                                <span class="status-failed"> FAIL</span>
+                            }
+                        }
+                        else
+                        {
+                            <span>Never</span>
+                        }
+                    </td>
                     <td class="actions">
                         @if (state.Status == Lfmt.NetRunner.Models.AppStatus.Running)
                         {
@@ -47,15 +66,13 @@ else
     </table>
 }
 
-<details>
-    <summary>System Info</summary>
-    <table>
-        <tr><td>Hostname</td><td>@Model.Hostname</td></tr>
-        <tr><td>OS</td><td>@Model.OsInfo</td></tr>
-        <tr><td>Runtime</td><td>@Model.DotnetVersion</td></tr>
-        <tr><td>Environment</td><td>@Model.Environment</td></tr>
-        <tr><td>Listen</td><td>@Model.ListenUrl</td></tr>
-        <tr><td>Apps root</td><td>@Model.AppsRoot</td></tr>
-        <tr><td>Apps</td><td>@Model.AppCount</td></tr>
-    </table>
-</details>
+<small>Lfmt.NetRunner @Model.AppVersion &middot; @Model.Settings.FormatTime(DateTimeOffset.UtcNow) &middot; @Model.OsInfo &middot; @Model.DotnetVersion &middot; @Model.HostIp &middot; @Model.Environment</small>
+
+@section Scripts {
+    @if (Model.Settings.RefreshIntervalSeconds > 0)
+    {
+        <script>
+            setInterval(() => location.reload(), @(Model.Settings.RefreshIntervalSeconds * 1000));
+        </script>
+    }
+}

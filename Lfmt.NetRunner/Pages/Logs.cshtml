@@ -20,7 +20,7 @@ else
             @foreach (var entry in Model.Entries)
             {
                 <tr>
-                    <td>@entry.Timestamp.ToString("g")</td>
+                    <td>@Model.Settings.FormatTime(entry.Timestamp)</td>
                     <td>@entry.Action</td>
                     <td>@entry.Result</td>
                     <td>@entry.Message</td>

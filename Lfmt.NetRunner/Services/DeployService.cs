@@ -12,6 +12,7 @@ public class DeployService
     private readonly HealthCheckService _healthCheck;
     private readonly ServiceFileGenerator _serviceFileGen;
     private readonly NetRunnerConfig _config;
+    private readonly SettingsService _settings;
     private readonly ILogger<DeployService> _logger;
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new();
 
@@ -21,6 +22,7 @@ public class DeployService
         HealthCheckService healthCheck,
         ServiceFileGenerator serviceFileGen,
         NetRunnerConfig config,
+        SettingsService settings,
         ILogger<DeployService> logger)
     {
         _appManager = appManager;
@@ -28,6 +30,7 @@ public class DeployService
         _healthCheck = healthCheck;
         _serviceFileGen = serviceFileGen;
         _config = config;
+        _settings = settings;
         _logger = logger;
     }
 
@@ -184,7 +187,7 @@ public class DeployService
                 var buildResult = await RunProcess(_config.DotnetPath,
                     $"publish \"{projectPath}\" -c Release -o \"{vNewDir}\"",
                     workingDir: sourceDir,
-                    timeoutSeconds: 600);
+                    timeoutSeconds: _settings.Current.BuildTimeoutSeconds);
 
                 if (!buildResult.Success)
                 {

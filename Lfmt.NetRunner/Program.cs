@@ -31,6 +31,7 @@ builder.Services.AddSingleton<AppManager>();
 builder.Services.AddSingleton<DeployService>();
 builder.Services.AddSingleton<ForgejoService>();
 builder.Services.AddSingleton<ServiceFileGenerator>();
+builder.Services.AddSingleton<SettingsService>();
 builder.Services.AddTransient<HealthCheckService>();
 builder.Services.AddHttpClient();
 builder.Services.AddRazorPages();

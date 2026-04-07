@@ -16,10 +16,81 @@
         Archive (.tar.gz or .zip)
         <input type="file" name="archive" required accept=".tar.gz,.tgz,.zip" />
     </label>
-    <small>
-        The archive must contain a <code>.netrunner</code> file describing the application.
-        Can be source code (with <code>project</code> field) or pre-built artifacts (with <code>dll</code> field).
-    </small>
 
     <button type="submit">Create &amp; Deploy</button>
 </form>
+
+<hr />
+
+<h2>Archive format</h2>
+<p>The archive must contain a <code>.netrunner</code> file in its root. Two modes are supported:</p>
+
+<div class="grid">
+    <div>
+        <h3>Source mode</h3>
+        <p>Archive contains source code. NetRunner will run <code>dotnet publish</code> on the server.</p>
+<pre><code>archive.zip
+  .netrunner
+  MyApp/
+    MyApp.csproj
+    Program.cs
+    ...</code></pre>
+<pre><code>[app]
+name = my-app
+port = 5100
+project = MyApp/MyApp.csproj
+
+[health]
+path = /health
+phrase = Healthy
+timeout = 30
+interval = 3
+
+[resources]
+memory = 256M
+cpu = 100%</code></pre>
+    </div>
+    <div>
+        <h3>Artifact mode</h3>
+        <p>Archive contains pre-built <code>dotnet publish</code> output. Deployed directly, no build step.</p>
+<pre><code>archive.zip
+  .netrunner
+  MyApp.dll
+  MyApp.runtimeconfig.json
+  ...</code></pre>
+<pre><code>[app]
+name = my-app
+port = 5100
+dll = MyApp.dll
+
+[health]
+path = /health
+phrase = Healthy
+timeout = 30
+interval = 3
+
+[resources]
+memory = 256M
+cpu = 100%</code></pre>
+    </div>
+</div>
+
+<h3>.netrunner reference</h3>
+<table>
+    <thead><tr><th>Section</th><th>Key</th><th>Required</th><th>Description</th></tr></thead>
+    <tbody>
+        <tr><td>[app]</td><td>name</td><td>yes</td><td>App name (<code>[a-z0-9-]</code>, 2-48 chars)</td></tr>
+        <tr><td>[app]</td><td>port</td><td>yes</td><td>HTTP port (1024-65535)</td></tr>
+        <tr><td>[app]</td><td>project</td><td>source</td><td>Path to .csproj (source mode)</td></tr>
+        <tr><td>[app]</td><td>dll</td><td>artifact</td><td>DLL filename (artifact mode)</td></tr>
+        <tr><td>[health]</td><td>path</td><td>no</td><td>Health check URL path (default: <code>/health</code>)</td></tr>
+        <tr><td>[health]</td><td>phrase</td><td>no</td><td>Expected string in response (default: <code>Healthy</code>)</td></tr>
+        <tr><td>[health]</td><td>timeout</td><td>no</td><td>Total timeout in seconds (default: 30)</td></tr>
+        <tr><td>[health]</td><td>interval</td><td>no</td><td>Retry interval in seconds (default: 3)</td></tr>
+        <tr><td>[resources]</td><td>memory</td><td>no</td><td>RAM limit, e.g. <code>256M</code> (default: 256M)</td></tr>
+        <tr><td>[resources]</td><td>cpu</td><td>no</td><td>CPU quota, e.g. <code>100%</code> = 1 core (default: 100%)</td></tr>
+        <tr><td>[env]</td><td><em>KEY</em></td><td>no</td><td>Environment variables (non-secret)</td></tr>
+        <tr><td>[service]</td><td>custom_file</td><td>no</td><td>Path to custom .service file</td></tr>
+        <tr><td>[service]</td><td>extra_directives</td><td>no</td><td>Extra systemd directives</td></tr>
+    </tbody>
+</table>

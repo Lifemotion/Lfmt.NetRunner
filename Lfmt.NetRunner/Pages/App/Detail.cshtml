@@ -6,7 +6,7 @@
 
 <hgroup>
     <h1>@Model.Config.Name</h1>
-    <p><a href="http://localhost:@Model.Config.Port/" target="_blank">localhost:@Model.Config.Port</a> &mdash;
+    <p><a href="http://@Model.HostIp:@Model.Config.Port/" target="_blank">@Model.HostIp:@Model.Config.Port</a> &mdash;
         <span class="status-@Model.State!.Status.ToString().ToLower()">@Model.State.Status</span>
     </p>
 </hgroup>
@@ -37,7 +37,7 @@
     <tr><td>@(Model.Config.IsSourceMode ? "Project" : "DLL")</td><td>@(Model.Config.IsSourceMode ? Model.Config.Project : Model.Config.GetDllName())</td></tr>
     <tr><td>Health check</td><td>@Model.Config.HealthPath (phrase: "@Model.Config.HealthPhrase")</td></tr>
     <tr><td>Resources</td><td>Memory: @Model.Config.Memory, CPU: @Model.Config.Cpu</td></tr>
-    <tr><td>Last deploy</td><td>@(Model.State.LastDeployedAt?.ToString("g") ?? "Never")</td></tr>
+    <tr><td>Last deploy</td><td>@Model.Settings.FormatTime(Model.State.LastDeployedAt)</td></tr>
     @if (Model.State.LastDeployCommit != null)
     {
         <tr><td>Commit</td><td><code>@Model.State.LastDeployCommit[..Math.Min(8, Model.State.LastDeployCommit.Length)]</code></td></tr>
@@ -59,7 +59,7 @@ else
             @foreach (var entry in Model.DeployLog)
             {
                 <tr>
-                    <td>@entry.Timestamp.ToString("g")</td>
+                    <td>@Model.Settings.FormatTime(entry.Timestamp)</td>
                     <td>@entry.Action</td>
                     <td>@entry.Result</td>
                     <td>@entry.Message</td>
@@ -70,4 +70,11 @@ else
 }
 
 <h2>Service Logs</h2>
-<pre class="log">@Model.JournalLogs</pre>
+<pre class="log" id="service-log">@Model.JournalLogs</pre>
+
+@section Scripts {
+    <script>
+        const log = document.getElementById('service-log');
+        if (log) log.scrollTop = log.scrollHeight;
+    </script>
+}

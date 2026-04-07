@@ -21,7 +21,7 @@ public class ServiceFileGenerator
         User=netrunner-{{app_name}}
         Group=netrunner-{{app_name}}
 
-        Environment=ASPNETCORE_URLS=http://localhost:{{port}}
+        Environment=ASPNETCORE_URLS=http://0.0.0.0:{{port}}
         Environment=DOTNET_NOLOGO=1
         EnvironmentFile=/var/lib/netrunner/apps/{{app_name}}/env
 

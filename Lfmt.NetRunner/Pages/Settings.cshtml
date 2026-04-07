@@ -1,0 +1,58 @@
+@page
+@model Lfmt.NetRunner.Pages.SettingsModel
+@{
+    ViewData["Title"] = "Settings";
+}
+
+<h1>Settings</h1>
+
+@if (Model.Saved)
+{
+    <article aria-label="Success">Settings saved.</article>
+}
+
+<form method="post">
+    <fieldset>
+        <legend>Display</legend>
+        <div class="grid">
+            <label>
+                Time zone
+                <select name="Input.TimeZone">
+                    @foreach (var tz in TimeZoneInfo.GetSystemTimeZones())
+                    {
+                        <option value="@tz.Id" selected="@(tz.Id == Model.Input.TimeZone)">@tz.DisplayName</option>
+                    }
+                </select>
+            </label>
+            <label>
+                Time format
+                <input type="text" name="Input.TimeFormat" value="@Model.Input.TimeFormat" />
+                <small>C# format string, e.g. <code>yyyy-MM-dd HH:mm:ss</code> or <code>dd.MM.yyyy HH:mm</code></small>
+            </label>
+        </div>
+        <label>
+            Dashboard auto-refresh (seconds, 0 to disable)
+            <input type="number" name="Input.RefreshIntervalSeconds" value="@Model.Input.RefreshIntervalSeconds" min="0" max="300" />
+        </label>
+    </fieldset>
+
+    <fieldset>
+        <legend>Deployment</legend>
+        <div class="grid">
+            <label>
+                Build timeout (seconds)
+                <input type="number" name="Input.BuildTimeoutSeconds" value="@Model.Input.BuildTimeoutSeconds" min="30" max="3600" />
+            </label>
+            <label>
+                Max upload size (MB)
+                <input type="number" name="Input.MaxUploadMb" value="@Model.Input.MaxUploadMb" min="1" max="1024" />
+            </label>
+        </div>
+        <label>
+            Journal log lines
+            <input type="number" name="Input.JournalLines" value="@Model.Input.JournalLines" min="10" max="1000" />
+        </label>
+    </fieldset>
+
+    <button type="submit">Save</button>
+</form>
