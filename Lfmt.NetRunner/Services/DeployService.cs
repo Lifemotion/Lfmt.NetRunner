@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO.Compression;
+using System.Text.RegularExpressions;
 using Lfmt.NetRunner.Models;
 
 namespace Lfmt.NetRunner.Services;
@@ -54,15 +55,19 @@ public class DeployService
 
             // Extract archive
             _logger.LogInformation("Extracting archive for {App}", appName);
-            await ExtractArchive(archiveStream, fileName, sourceDir);
+            await ArchiveHelper.ExtractAsync(archiveStream, fileName, sourceDir);
 
             // Check for .netrunner file and update config if present
-            var netrunnerFile = FindNetrunnerFile(sourceDir);
+            var netrunnerFile = ArchiveHelper.FindNetrunnerFile(sourceDir);
             if (netrunnerFile != null)
             {
                 var ini = IniParser.Parse(await File.ReadAllTextAsync(netrunnerFile));
                 var newConfig = AppConfig.FromIni(ini);
-                // Keep the original name
+
+                if (!string.IsNullOrEmpty(newConfig.Name) && newConfig.Name != appName)
+                    throw new InvalidOperationException(
+                        $"App name mismatch: archive has '{newConfig.Name}', expected '{appName}'");
+
                 newConfig.Name = appName;
                 await _appManager.UpdateApp(appName, newConfig);
                 appConfig = newConfig;
@@ -93,6 +98,10 @@ public class DeployService
             if (Directory.Exists(sourceDir))
                 Directory.Delete(sourceDir, true);
 
+            // Validate branch name to prevent command injection
+            if (!Regex.IsMatch(branch, @"^[a-zA-Z0-9/_.\-]+$"))
+                throw new ArgumentException($"Invalid branch name: {branch}");
+
             // Clone
             _logger.LogInformation("Cloning {Url} branch {Branch} for {App}", cloneUrl, branch, appName);
             var cloneResult = await RunProcess("git",
@@ -104,11 +113,16 @@ public class DeployService
                 throw new InvalidOperationException($"git clone failed: {cloneResult.Error}");
 
             // Read .netrunner from cloned repo
-            var netrunnerFile = FindNetrunnerFile(sourceDir);
+            var netrunnerFile = ArchiveHelper.FindNetrunnerFile(sourceDir);
             if (netrunnerFile != null)
             {
                 var ini = IniParser.Parse(await File.ReadAllTextAsync(netrunnerFile));
                 var newConfig = AppConfig.FromIni(ini);
+
+                if (!string.IsNullOrEmpty(newConfig.Name) && newConfig.Name != appName)
+                    throw new InvalidOperationException(
+                        $"App name mismatch: repo has '{newConfig.Name}', expected '{appName}'");
+
                 newConfig.Name = appName;
                 await _appManager.UpdateApp(appName, newConfig);
                 appConfig = newConfig;
@@ -127,7 +141,17 @@ public class DeployService
         var appDir = _appManager.GetAppDir(appName);
         var v1Dir = Path.Combine(appDir, "releases", "v1");
 
-        if (!Directory.Exists(v1Dir))
+        // Check that current is v2 and v1 exists
+        var currentLink = Path.Combine(appDir, "current");
+        var currentTarget = "";
+        try
+        {
+            var target = File.ResolveLinkTarget(currentLink, returnFinalTarget: false);
+            currentTarget = target != null ? Path.GetFileName(target.FullName) : "";
+        }
+        catch { }
+
+        if (currentTarget != "v2" || !Directory.Exists(v1Dir))
             throw new InvalidOperationException("No previous version available for rollback");
 
         _logger.LogInformation("Rolling back {App} to v1", appName);
@@ -354,16 +378,25 @@ public class DeployService
         var dir = Path.GetDirectoryName(linkPath)!;
         var name = Path.GetFileName(linkPath);
 
-        // ln -sfn creates symlink atomically with rename
         var psi = new ProcessStartInfo
         {
             FileName = "ln",
             Arguments = $"-sfn {target} {name}",
             WorkingDirectory = dir,
+            RedirectStandardError = true,
             UseShellExecute = false,
         };
-        using var process = Process.Start(psi)!;
-        process.WaitForExit();
+        var process = Process.Start(psi)
+            ?? throw new InvalidOperationException("Failed to start ln");
+        using (process)
+        {
+            process.WaitForExit();
+            if (process.ExitCode != 0)
+            {
+                var error = process.StandardError.ReadToEnd();
+                throw new InvalidOperationException($"Symlink swap failed: {error}");
+            }
+        }
     }
 
     private async Task<ProcessResult> RunProcess(string fileName, string arguments,
@@ -390,7 +423,9 @@ public class DeployService
             psi.Environment["NUGET_FALLBACK_PACKAGES"] = "";
         }
 
-        using var process = Process.Start(psi)!;
+        var process = Process.Start(psi)
+            ?? throw new InvalidOperationException($"Failed to start process: {fileName}");
+        using (process)
         try
         {
             var output = await process.StandardOutput.ReadToEndAsync(cts.Token);
@@ -430,64 +465,6 @@ public class DeployService
             File.Copy(file, Path.Combine(destDir, Path.GetFileName(file)));
         foreach (var dir in Directory.GetDirectories(sourceDir))
             CopyDirectory(dir, Path.Combine(destDir, Path.GetFileName(dir)));
-    }
-
-    private static string? FindNetrunnerFile(string dir)
-    {
-        var path = Path.Combine(dir, ".netrunner");
-        if (File.Exists(path)) return path;
-
-        // Check one level down (in case archive has a root folder)
-        foreach (var subDir in Directory.GetDirectories(dir))
-        {
-            path = Path.Combine(subDir, ".netrunner");
-            if (File.Exists(path)) return path;
-        }
-
-        return null;
-    }
-
-    private static async Task ExtractArchive(Stream stream, string fileName, string destDir)
-    {
-        if (fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-        {
-            using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
-            archive.ExtractToDirectory(destDir);
-        }
-        else if (fileName.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase) ||
-                 fileName.EndsWith(".tgz", StringComparison.OrdinalIgnoreCase))
-        {
-            // Save to temp file, then extract with tar
-            var tmpFile = Path.GetTempFileName();
-            try
-            {
-                await using (var fs = File.Create(tmpFile))
-                    await stream.CopyToAsync(fs);
-
-                var psi = new ProcessStartInfo
-                {
-                    FileName = "tar",
-                    Arguments = $"xzf \"{tmpFile}\" -C \"{destDir}\"",
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                };
-                using var process = Process.Start(psi)!;
-                await process.WaitForExitAsync();
-                if (process.ExitCode != 0)
-                {
-                    var error = await process.StandardError.ReadToEndAsync();
-                    throw new InvalidOperationException($"tar extract failed: {error}");
-                }
-            }
-            finally
-            {
-                File.Delete(tmpFile);
-            }
-        }
-        else
-        {
-            throw new InvalidOperationException($"Unsupported archive format: {fileName}");
-        }
     }
 
     private record ProcessResult

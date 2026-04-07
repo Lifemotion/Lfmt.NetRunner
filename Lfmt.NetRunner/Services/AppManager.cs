@@ -56,12 +56,17 @@ public partial class AppManager
             }
         }
 
+        var currentVersion = GetCurrentVersion(appDir);
+
         return new AppState
         {
             Name = name,
             Status = status,
             Port = config.Port,
-            HasPreviousVersion = Directory.Exists(Path.Combine(appDir, "releases", "v1")),
+            CurrentVersion = currentVersion,
+            // Rollback available only when on v2 and v1 exists
+            HasPreviousVersion = currentVersion == "v2"
+                && Directory.Exists(Path.Combine(appDir, "releases", "v1")),
             LastDeployedAt = lastDeployed,
             LastDeployCommit = lastCommit,
             LastDeployResult = lastResult,
@@ -185,6 +190,25 @@ public partial class AppManager
     {
         if (!AppNameRegex().IsMatch(name))
             throw new ArgumentException($"Invalid app name '{name}': must match [a-z0-9][a-z0-9-]{{0,46}}[a-z0-9]");
+    }
+
+    private static string GetCurrentVersion(string appDir)
+    {
+        var currentLink = Path.Combine(appDir, "current");
+        if (!Path.Exists(currentLink)) return "—";
+
+        try
+        {
+            var target = File.ResolveLinkTarget(currentLink, returnFinalTarget: false);
+            if (target != null)
+            {
+                var name = Path.GetFileName(target.FullName);
+                return name; // "v1", "v2", "v_new"
+            }
+        }
+        catch { }
+
+        return "—";
     }
 
     private void ValidatePort(int port, string excludeApp)

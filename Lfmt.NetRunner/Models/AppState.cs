@@ -8,6 +8,7 @@ public class AppState
     public DateTimeOffset? LastDeployedAt { get; set; }
     public string? LastDeployCommit { get; set; }
     public string? LastDeployResult { get; set; }
+    public string CurrentVersion { get; set; } = "";
     public int Port { get; set; }
 }
 

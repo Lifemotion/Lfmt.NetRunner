@@ -37,6 +37,7 @@
     <tr><td>@(Model.Config.IsSourceMode ? "Project" : "DLL")</td><td>@(Model.Config.IsSourceMode ? Model.Config.Project : Model.Config.GetDllName())</td></tr>
     <tr><td>Health check</td><td>@Model.Config.HealthPath (phrase: "@Model.Config.HealthPhrase")</td></tr>
     <tr><td>Resources</td><td>Memory: @Model.Config.Memory, CPU: @Model.Config.Cpu</td></tr>
+    <tr><td>Version</td><td>@Model.State.CurrentVersion@(Model.State.HasPreviousVersion ? " (rollback available)" : "")</td></tr>
     <tr><td>Last deploy</td><td>@Model.Settings.FormatTime(Model.State.LastDeployedAt)</td></tr>
     @if (Model.State.LastDeployCommit != null)
     {

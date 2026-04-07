@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Lfmt.NetRunner.Models;
 using Lfmt.NetRunner.Services;
-using System.IO.Compression;
 
 namespace Lfmt.NetRunner.Controllers;
 
@@ -25,6 +24,7 @@ public class AppsController : ControllerBase
     [HttpGet("{name}/status")]
     public async Task<IActionResult> GetStatus(string name)
     {
+        AppManager.ValidateAppName(name);
         var status = await _systemd.GetAppStatus(name);
         return Ok(new { status = status.ToString() });
     }
@@ -32,6 +32,7 @@ public class AppsController : ControllerBase
     [HttpGet("{name}/logs")]
     public async Task<IActionResult> GetLogs(string name)
     {
+        AppManager.ValidateAppName(name);
         var logs = await _systemd.GetJournalLogs(name, _settings.Current.JournalLines);
         return Ok(new { logs });
     }
@@ -39,6 +40,7 @@ public class AppsController : ControllerBase
     [HttpPost("{name}/start")]
     public async Task<IActionResult> Start(string name)
     {
+        AppManager.ValidateAppName(name);
         await _systemd.Start(name);
         return Ok(new { ok = true });
     }
@@ -46,6 +48,7 @@ public class AppsController : ControllerBase
     [HttpPost("{name}/stop")]
     public async Task<IActionResult> Stop(string name)
     {
+        AppManager.ValidateAppName(name);
         await _systemd.Stop(name);
         return Ok(new { ok = true });
     }
@@ -53,6 +56,7 @@ public class AppsController : ControllerBase
     [HttpPost("{name}/restart")]
     public async Task<IActionResult> Restart(string name)
     {
+        AppManager.ValidateAppName(name);
         await _systemd.Restart(name);
         return Ok(new { ok = true });
     }
@@ -60,6 +64,7 @@ public class AppsController : ControllerBase
     [HttpPost("{name}/rollback")]
     public async Task<IActionResult> Rollback(string name)
     {
+        AppManager.ValidateAppName(name);
         var ok = await _deploy.Rollback(name);
         return ok ? Ok(new { ok }) : StatusCode(500, new { ok });
     }
@@ -67,6 +72,7 @@ public class AppsController : ControllerBase
     [HttpPost("{name}/delete")]
     public async Task<IActionResult> Delete(string name)
     {
+        AppManager.ValidateAppName(name);
         if (_appManager.GetAppConfig(name) == null)
             return NotFound(new { error = $"App '{name}' not found" });
 
@@ -77,8 +83,8 @@ public class AppsController : ControllerBase
     [HttpPost("{name}/deploy")]
     public async Task<IActionResult> Deploy(string name, IFormFile file)
     {
-        if (file == null || file.Length == 0)
-            return BadRequest(new { error = "No file uploaded" });
+        AppManager.ValidateAppName(name);
+        ValidateUpload(file);
 
         if (_appManager.GetAppConfig(name) == null)
             return NotFound(new { error = $"App '{name}' not found. Use POST /api/apps/create to create first." });
@@ -88,47 +94,18 @@ public class AppsController : ControllerBase
         return ok ? Ok(new { ok }) : StatusCode(500, new { ok });
     }
 
-    /// <summary>
-    /// Create a new app and deploy from archive containing .netrunner file.
-    /// </summary>
     [HttpPost("create")]
     public async Task<IActionResult> Create(IFormFile file)
     {
-        if (file == null || file.Length == 0)
-            return BadRequest(new { error = "No file uploaded" });
+        ValidateUpload(file);
 
-        // Extract to temp dir to read .netrunner
         var tempDir = Path.Combine(Path.GetTempPath(), "netrunner-create-" + Guid.NewGuid().ToString("N")[..8]);
         try
         {
             Directory.CreateDirectory(tempDir);
+            await ArchiveHelper.ExtractAsync(file, tempDir);
 
-            if (file.FileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-            {
-                using var stream = file.OpenReadStream();
-                using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
-                archive.ExtractToDirectory(tempDir);
-            }
-            else
-            {
-                var tmpFile = Path.GetTempFileName();
-                try
-                {
-                    await using (var fs = System.IO.File.Create(tmpFile))
-                        await file.CopyToAsync(fs);
-                    var psi = new System.Diagnostics.ProcessStartInfo
-                    {
-                        FileName = "tar", Arguments = $"xzf \"{tmpFile}\" -C \"{tempDir}\"",
-                        UseShellExecute = false, RedirectStandardError = true,
-                    };
-                    using var proc = System.Diagnostics.Process.Start(psi)!;
-                    await proc.WaitForExitAsync();
-                }
-                finally { System.IO.File.Delete(tmpFile); }
-            }
-
-            // Find .netrunner
-            var netrunnerPath = FindNetrunnerFile(tempDir);
+            var netrunnerPath = ArchiveHelper.FindNetrunnerFile(tempDir);
             if (netrunnerPath == null)
                 return BadRequest(new { error = "Archive does not contain a .netrunner file" });
 
@@ -154,17 +131,13 @@ public class AppsController : ControllerBase
         }
     }
 
-    private static string? FindNetrunnerFile(string dir)
+    private void ValidateUpload(IFormFile? file)
     {
-        var path = Path.Combine(dir, ".netrunner");
-        if (System.IO.File.Exists(path)) return path;
+        if (file == null || file.Length == 0)
+            throw new ArgumentException("No file uploaded");
 
-        foreach (var subDir in Directory.GetDirectories(dir))
-        {
-            path = Path.Combine(subDir, ".netrunner");
-            if (System.IO.File.Exists(path)) return path;
-        }
-
-        return null;
+        var maxBytes = _settings.Current.MaxUploadMb * 1024 * 1024;
+        if (file.Length > maxBytes)
+            throw new ArgumentException($"File too large ({file.Length / 1024 / 1024} MB). Max: {_settings.Current.MaxUploadMb} MB");
     }
 }

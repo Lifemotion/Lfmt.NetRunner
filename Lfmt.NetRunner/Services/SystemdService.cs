@@ -84,16 +84,22 @@ public class SystemdService
             UseShellExecute = false,
         };
 
-        using var process = Process.Start(psi)!;
-        await process.StandardInput.WriteAsync(content);
-        process.StandardInput.Close();
-        await process.WaitForExitAsync();
-
-        if (process.ExitCode != 0)
+        var process = Process.Start(psi)
+            ?? throw new InvalidOperationException("Failed to start sudo");
+        using (process)
         {
-            var error = await process.StandardError.ReadToEndAsync();
-            _logger.LogError("write-env failed for {App}: {Error}", appName, error);
-            throw new InvalidOperationException($"write-env failed: {error}");
+            // Read stderr concurrently to avoid deadlock
+            var errorTask = process.StandardError.ReadToEndAsync();
+            await process.StandardInput.WriteAsync(content);
+            process.StandardInput.Close();
+            await process.WaitForExitAsync();
+            var error = await errorTask;
+
+            if (process.ExitCode != 0)
+            {
+                _logger.LogError("write-env failed for {App}: {Error}", appName, error);
+                throw new InvalidOperationException($"write-env failed: {error}");
+            }
         }
     }
 
@@ -122,17 +128,21 @@ public class SystemdService
             UseShellExecute = false,
         };
 
-        using var process = Process.Start(psi)!;
-        var output = await process.StandardOutput.ReadToEndAsync();
-        var error = await process.StandardError.ReadToEndAsync();
-        await process.WaitForExitAsync();
-
-        if (process.ExitCode != 0 && !args[0].Equals("status", StringComparison.OrdinalIgnoreCase))
+        var process = Process.Start(psi)
+            ?? throw new InvalidOperationException($"Failed to start sudo");
+        using (process)
         {
-            _logger.LogError("sudo {Args} failed (exit {Code}): {Error}", arguments, process.ExitCode, error);
-            throw new InvalidOperationException($"sudo {args[0]} failed: {error}");
-        }
+            var output = await process.StandardOutput.ReadToEndAsync();
+            var error = await process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
 
-        return output + error;
+            if (process.ExitCode != 0 && !args[0].Equals("status", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogError("sudo {Args} failed (exit {Code}): {Error}", arguments, process.ExitCode, error);
+                throw new InvalidOperationException($"sudo {args[0]} failed: {error}");
+            }
+
+            return output + error;
+        }
     }
 }
