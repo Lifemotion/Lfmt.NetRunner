@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/testapp/">
+    <File Path="testapp/.netrunner" />
     <Project Path="testapp/TestApp/TestApp.csproj" />
   </Folder>
   <Project Path="Lfmt.NetRunner/Lfmt.NetRunner.csproj" />

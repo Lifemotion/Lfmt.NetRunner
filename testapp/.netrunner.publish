@@ -1,6 +1,6 @@
 [app]
 name = test-app
-port = 5100
+port = 5101
 dll = TestApp.dll
 
 [health]
