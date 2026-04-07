@@ -7,11 +7,13 @@ public class SystemdService
 {
     private readonly NetRunnerConfig _config;
     private readonly ILogger<SystemdService> _logger;
+    private readonly bool _devMode;
 
-    public SystemdService(NetRunnerConfig config, ILogger<SystemdService> logger)
+    public SystemdService(NetRunnerConfig config, ILogger<SystemdService> logger, IWebHostEnvironment env)
     {
         _config = config;
         _logger = logger;
+        _devMode = env.IsDevelopment() || !OperatingSystem.IsLinux();
     }
 
     public Task<string> Start(string appName) => RunSudo("start", appName);
@@ -32,6 +34,8 @@ public class SystemdService
 
     public async Task<AppStatus> GetAppStatus(string appName)
     {
+        if (_devMode) return AppStatus.Stopped;
+
         var output = await GetStatus(appName);
         if (output.Contains("Active: active (running)"))
             return AppStatus.Running;
@@ -49,6 +53,15 @@ public class SystemdService
 
     public async Task WriteEnv(string appName, string content)
     {
+        if (_devMode)
+        {
+            // In dev mode, write env file directly (no sudo)
+            var envPath = Path.Combine(_config.AppsRoot, appName, "env");
+            await File.WriteAllTextAsync(envPath, content);
+            _logger.LogInformation("[DEV] Wrote env for {App}", appName);
+            return;
+        }
+
         var psi = new ProcessStartInfo
         {
             FileName = "sudo",
@@ -74,6 +87,17 @@ public class SystemdService
 
     private async Task<string> RunSudo(params string[] args)
     {
+        if (_devMode)
+        {
+            _logger.LogInformation("[DEV] sudo {Args} (skipped)", string.Join(" ", args));
+            return args[0] switch
+            {
+                "status" => "Active: inactive (dead)",
+                "logs" => "(dev mode - no logs available)",
+                _ => "OK"
+            };
+        }
+
         var arguments = $"{_config.SudoScript} {string.Join(" ", args)}";
         _logger.LogInformation("sudo {Args}", arguments);
 
