@@ -35,6 +35,7 @@ builder.Services.AddSingleton<SettingsService>();
 builder.Services.AddTransient<HealthCheckService>();
 builder.Services.AddHttpClient();
 builder.Services.AddRazorPages();
+builder.Services.AddControllers();
 
 var app = builder.Build();
 
@@ -44,119 +45,6 @@ if (!app.Environment.IsDevelopment())
 app.UseRouting();
 app.MapStaticAssets();
 app.MapRazorPages().WithStaticAssets();
-
-// --- Minimal API endpoints ---
-
-app.MapPost("/api/apps/{name}/start", async (string name, SystemdService systemd) =>
-{
-    try { await systemd.Start(name); return Results.Ok(new { ok = true }); }
-    catch (Exception ex) { return Results.Json(new { error = ex.Message }, statusCode: 500); }
-});
-
-app.MapPost("/api/apps/{name}/stop", async (string name, SystemdService systemd) =>
-{
-    try { await systemd.Stop(name); return Results.Ok(new { ok = true }); }
-    catch (Exception ex) { return Results.Json(new { error = ex.Message }, statusCode: 500); }
-});
-
-app.MapPost("/api/apps/{name}/restart", async (string name, SystemdService systemd) =>
-{
-    try { await systemd.Restart(name); return Results.Ok(new { ok = true }); }
-    catch (Exception ex) { return Results.Json(new { error = ex.Message }, statusCode: 500); }
-});
-
-app.MapPost("/api/apps/{name}/rollback", async (string name, DeployService deploy) =>
-{
-    try { var ok = await deploy.Rollback(name); return Results.Json(new { ok }, statusCode: ok ? 200 : 500); }
-    catch (Exception ex) { return Results.Json(new { error = ex.Message }, statusCode: 500); }
-});
-
-app.MapPost("/api/apps/{name}/delete", async (string name, AppManager appManager) =>
-{
-    try { await appManager.DeleteApp(name); return Results.Ok(new { ok = true }); }
-    catch (Exception ex) { return Results.Json(new { error = ex.Message }, statusCode: 500); }
-});
-
-app.MapPost("/api/apps/{name}/deploy", async (string name, HttpRequest request, DeployService deploy) =>
-{
-    try
-    {
-        var form = await request.ReadFormAsync();
-        var file = form.Files.FirstOrDefault();
-        if (file == null)
-            return Results.Json(new { error = "No file uploaded" }, statusCode: 400);
-
-        using var stream = file.OpenReadStream();
-        var ok = await deploy.DeployFromArchive(name, stream, file.FileName);
-        return Results.Json(new { ok }, statusCode: ok ? 200 : 500);
-    }
-    catch (Exception ex) { return Results.Json(new { error = ex.Message }, statusCode: 500); }
-});
-
-app.MapGet("/api/apps/{name}/status", async (string name, SystemdService systemd) =>
-{
-    try { var status = await systemd.GetAppStatus(name); return Results.Ok(new { status = status.ToString() }); }
-    catch (Exception ex) { return Results.Json(new { error = ex.Message }, statusCode: 500); }
-});
-
-app.MapGet("/api/apps/{name}/logs", async (string name, SystemdService systemd, SettingsService settings) =>
-{
-    try { var logs = await systemd.GetJournalLogs(name, settings.Current.JournalLines); return Results.Ok(new { logs }); }
-    catch (Exception ex) { return Results.Json(new { error = ex.Message }, statusCode: 500); }
-});
-
-app.MapPost("/api/webhook/forgejo", async (HttpContext ctx, ForgejoService forgejo, DeployService deploy, AppManager appManager) =>
-{
-    // Read body
-    using var reader = new StreamReader(ctx.Request.Body);
-    var body = await reader.ReadToEndAsync();
-
-    // Verify signature
-    var signature = ctx.Request.Headers["X-Forgejo-Signature"].FirstOrDefault() ?? "";
-    if (!forgejo.VerifySignature(body, signature))
-        return Results.StatusCode(403);
-
-    // Parse payload
-    var payload = forgejo.ParsePayload(body);
-    if (payload == null)
-        return Results.BadRequest("Invalid payload");
-
-    // Resolve app name from repo URL
-    var appName = forgejo.ResolveAppName(payload.Repository.CloneUrl);
-    if (appName == null)
-        return Results.NotFound("No app mapped to this repository");
-
-    // Check if app exists
-    if (appManager.GetAppConfig(appName) == null)
-        return Results.NotFound($"App '{appName}' not registered");
-
-    // Check branch (default: main)
-    var branch = payload.GetBranch();
-    if (branch != "main" && branch != "master")
-        return Results.Ok(new { message = $"Ignored push to branch '{branch}'" });
-
-    // Clone URL from config (not payload!)
-    var cloneUrl = forgejo.GetConfigCloneUrl(appName);
-    if (cloneUrl == null)
-        return Results.StatusCode(500);
-
-    var commitId = payload.HeadCommit?.Id;
-
-    // Deploy in background
-    _ = Task.Run(async () =>
-    {
-        try
-        {
-            await deploy.DeployFromGit(appName, cloneUrl, branch, commitId);
-        }
-        catch (Exception ex)
-        {
-            var logger = app.Services.GetRequiredService<ILogger<Program>>();
-            logger.LogError(ex, "Webhook deploy failed for {App}", appName);
-        }
-    });
-
-    return Results.Accepted(value: new { message = $"Deploy started for '{appName}'" });
-});
+app.MapControllers();
 
 app.Run();
