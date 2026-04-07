@@ -28,9 +28,16 @@ name = my-web-app
 # HTTP port the application listens on
 port = 5100
 
-# Path to .csproj relative to repository/archive root
+# SOURCE MODE: path to .csproj relative to archive root
+# NetRunner will run dotnet publish on the server
 project = src/MyApp/MyApp.csproj
+
+# ARTIFACT MODE: DLL filename (for pre-built publish output)
+# Archive is deployed directly, no build step
+# dll = MyApp.dll
 ```
+
+Set **either** `project` (source mode) or `dll` (artifact mode). At least one is required.
 
 **Name validation:**
 - Only `[a-z0-9-]`
@@ -107,11 +114,11 @@ Secrets (API keys, passwords) are set separately via the UI → saved to the `en
 
 **Security note:** Even in custom service files, NetRunner **always force-overrides** security-critical directives: `User=`, `Group=`, all hardening directives (`ProtectSystem`, `NoNewPrivileges`, etc.), and `EnvironmentFile`. This prevents privilege escalation. Allowed customizations: `WorkingDirectory`, `Environment`, `ReadWritePaths`, `ExecStart` arguments.
 
-## Full Example
+## Examples
+
+### Source mode (NetRunner builds from source)
 
 ```ini
-# .netrunner — RW.HelpDesk
-
 [app]
 name = rw-helpdesk
 port = 5035
@@ -129,9 +136,25 @@ cpu = 100%
 
 [env]
 ASPNETCORE_ENVIRONMENT = Production
+```
 
-[service]
-extra_directives = ReadWritePaths=/var/data/rw-helpdesk
+### Artifact mode (pre-built publish output)
+
+```ini
+[app]
+name = rw-helpdesk
+port = 5035
+dll = RW.HelpDesk.dll
+
+[health]
+path = /
+phrase = HelpDesk
+timeout = 45
+interval = 5
+
+[resources]
+memory = 512M
+cpu = 100%
 ```
 
 ## Template Placeholders
@@ -145,5 +168,5 @@ When generating a .service file (or processing a custom one), the following plac
 | `{{memory}}` | [resources] memory | `256M` |
 | `{{cpu}}` | [resources] cpu | `100%` |
 | `{{dotnet_path}}` | netrunner.conf paths.dotnet_path | `/usr/bin/dotnet` |
-| `{{dll_name}}` | Derived from .csproj filename | `MyApp.dll` |
+| `{{dll_name}}` | From `dll` field, or derived from .csproj filename | `MyApp.dll` |
 | `{{extra_directives}}` | [service] extra_directives | `ReadWritePaths=...` |

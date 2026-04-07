@@ -117,3 +117,27 @@ If the deploy fails or the process crashes at any point before finalization, `v2
 **Decision:** The clone URL from a Forgejo webhook payload is used only for lookup (matching to an app name). The actual `git clone` uses the URL stored in `netrunner.conf`.
 
 **Why:** An attacker who knows the webhook secret could send a forged payload with a malicious repository URL. Using the config URL ensures only pre-approved repositories are cloned and built.
+
+## 18. Dual deploy mode: source and artifact
+
+**Decision:** Two deployment modes determined by `.netrunner` file: `project` field → source mode (NetRunner builds), `dll` field → artifact mode (pre-built, deployed directly).
+
+**Why:** Source mode is convenient for development (push and forget). Artifact mode is faster and doesn't require SDK on the server for simple deployments. Supporting both gives flexibility without complexity.
+
+## 19. Dev mode on Windows, real systemd on Linux
+
+**Decision:** `SystemdService` returns stubs on Windows (`!OperatingSystem.IsLinux()`), uses real sudo/systemd on Linux (including WSL).
+
+**Why:** Enables UI development and testing on Windows without Linux. WSL2 with systemd provides full integration testing. Config path also switches: Windows → `netrunner.dev.conf`, Linux → `/var/lib/netrunner/netrunner.conf`.
+
+## 20. API Controllers with global exception filter
+
+**Decision:** API endpoints in `AppsController` and `WebhookController` instead of inline Minimal API. Global `ApiExceptionFilter` catches all exceptions and returns JSON `{"error": "..."}`.
+
+**Why:** Controllers are cleaner for 10+ endpoints. The exception filter ensures API never returns HTML stack traces, even in Development mode.
+
+## 21. Configurable UI settings stored in settings.ini
+
+**Decision:** UI settings (timezone, time format, refresh interval, build timeout, upload limit, journal lines) stored in `settings.ini` in the apps directory, managed via `/Settings` page.
+
+**Why:** Timezone and time format are essential for multi-timezone teams. Other settings avoid hardcoding values that vary by deployment. File-based storage keeps it consistent with the no-database approach.

@@ -38,6 +38,7 @@ secret = <generate with: openssl rand -hex 32>
 [paths]
 apps_root = /var/lib/netrunner/apps
 dotnet_path = /usr/bin/dotnet
+sudo_script = /opt/netrunner/netrunner-sudo.sh
 
 [webhooks]
 # clone_url = app-name
