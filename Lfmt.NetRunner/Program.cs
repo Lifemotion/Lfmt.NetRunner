@@ -35,7 +35,10 @@ builder.Services.AddSingleton<SettingsService>();
 builder.Services.AddTransient<HealthCheckService>();
 builder.Services.AddHttpClient();
 builder.Services.AddRazorPages();
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<Lfmt.NetRunner.Filters.ApiExceptionFilter>();
+});
 
 var app = builder.Build();
 
