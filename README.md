@@ -16,8 +16,8 @@ A lightweight self-hosted service for deploying .NET Core applications on Linux.
 Requires .NET 10 SDK on the server (for building apps from source).
 
 ```bash
-# Install .NET SDK
-sudo apt install -y dotnet-sdk-10.0
+# Install .NET SDK (if not already installed)
+curl -sSL https://raw.githubusercontent.com/Lifemotion/Lfmt.NetRunner/main/deploy/install-dotnet.sh | bash
 
 # Install NetRunner
 curl -sSL https://raw.githubusercontent.com/Lifemotion/Lfmt.NetRunner/main/deploy/install.sh | bash

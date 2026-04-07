@@ -10,6 +10,14 @@ APPS_DIR="$DATA_DIR/apps"
 
 echo "==> Installing Lfmt.NetRunner..."
 
+# Check for .NET SDK
+if ! command -v dotnet &>/dev/null; then
+    echo "ERROR: .NET SDK not found. Install it first:"
+    echo "  curl -sSL https://raw.githubusercontent.com/Lifemotion/Lfmt.NetRunner/main/deploy/install-dotnet.sh | bash"
+    exit 1
+fi
+echo "    .NET $(dotnet --version) found"
+
 # Detect architecture
 ARCH=$(uname -m)
 case "$ARCH" in
