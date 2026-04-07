@@ -1,0 +1,65 @@
+@page "/App/{name}/Edit"
+@model Lfmt.NetRunner.Pages.App.EditModel
+@{
+    ViewData["Title"] = $"Edit {Model.Name}";
+}
+
+<h1>Edit @Model.Name</h1>
+
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <article aria-label="Error" style="background: var(--pico-del-color);">@Model.Error</article>
+}
+
+<form method="post">
+    <label>
+        Port
+        <input type="number" name="Input.Port" value="@Model.Input.Port" required min="1024" max="65535" />
+    </label>
+
+    <label>
+        Project path (.csproj)
+        <input type="text" name="Input.Project" value="@Model.Input.Project" required />
+    </label>
+
+    <fieldset>
+        <legend>Health Check</legend>
+        <div class="grid">
+            <label>
+                Path
+                <input type="text" name="Input.HealthPath" value="@Model.Input.HealthPath" />
+            </label>
+            <label>
+                Phrase
+                <input type="text" name="Input.HealthPhrase" value="@Model.Input.HealthPhrase" />
+            </label>
+        </div>
+        <div class="grid">
+            <label>
+                Timeout (s)
+                <input type="number" name="Input.HealthTimeoutSeconds" value="@Model.Input.HealthTimeoutSeconds" />
+            </label>
+            <label>
+                Interval (s)
+                <input type="number" name="Input.HealthIntervalSeconds" value="@Model.Input.HealthIntervalSeconds" />
+            </label>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Resources</legend>
+        <div class="grid">
+            <label>
+                Memory
+                <input type="text" name="Input.Memory" value="@Model.Input.Memory" />
+            </label>
+            <label>
+                CPU
+                <input type="text" name="Input.Cpu" value="@Model.Input.Cpu" />
+            </label>
+        </div>
+    </fieldset>
+
+    <button type="submit">Save</button>
+    <a href="/App/@Model.Name" role="button" class="outline secondary">Cancel</a>
+</form>

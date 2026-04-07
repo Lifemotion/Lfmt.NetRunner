@@ -1,0 +1,31 @@
+@page
+@model Lfmt.NetRunner.Pages.LogsModel
+@{
+    ViewData["Title"] = "Deploy Logs";
+}
+
+<h1>Deploy Logs</h1>
+
+@if (Model.Entries.Count == 0)
+{
+    <p>No deployment activity yet.</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr><th>Time</th><th>Action</th><th>Result</th><th>Message</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var entry in Model.Entries)
+            {
+                <tr>
+                    <td>@entry.Timestamp.ToString("g")</td>
+                    <td>@entry.Action</td>
+                    <td>@entry.Result</td>
+                    <td>@entry.Message</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

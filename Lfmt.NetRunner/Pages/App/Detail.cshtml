@@ -1,0 +1,71 @@
+@page "/App/{name}"
+@model Lfmt.NetRunner.Pages.App.DetailModel
+@{
+    ViewData["Title"] = Model.Config!.Name;
+}
+
+<hgroup>
+    <h1>@Model.Config.Name</h1>
+    <p>Port @Model.Config.Port &mdash;
+        <span class="status-@Model.State!.Status.ToString().ToLower()">@Model.State.Status</span>
+    </p>
+</hgroup>
+
+<div class="actions">
+    @if (Model.State.Status == Lfmt.NetRunner.Models.AppStatus.Running)
+    {
+        <button class="outline secondary" onclick="apiPost('/api/apps/@Model.Config.Name/restart')">Restart</button>
+        <button class="outline secondary" onclick="apiPost('/api/apps/@Model.Config.Name/stop')">Stop</button>
+    }
+    else
+    {
+        <button class="outline" onclick="apiPost('/api/apps/@Model.Config.Name/start')">Start</button>
+    }
+    <a href="/App/@Model.Config.Name/Deploy" role="button" class="outline">Deploy</a>
+    <a href="/App/@Model.Config.Name/Edit" role="button" class="outline secondary">Edit</a>
+    <a href="/App/@Model.Config.Name/Env" role="button" class="outline secondary">Env</a>
+    @if (Model.State.HasPreviousVersion)
+    {
+        <button class="outline contrast" onclick="if(confirm('Rollback to previous version?')) apiPost('/api/apps/@Model.Config.Name/rollback')">Rollback</button>
+    }
+</div>
+
+<h2>Configuration</h2>
+<table>
+    <tr><td>Project</td><td>@Model.Config.Project</td></tr>
+    <tr><td>Health check</td><td>@Model.Config.HealthPath (phrase: "@Model.Config.HealthPhrase")</td></tr>
+    <tr><td>Resources</td><td>Memory: @Model.Config.Memory, CPU: @Model.Config.Cpu</td></tr>
+    <tr><td>Last deploy</td><td>@(Model.State.LastDeployedAt?.ToString("g") ?? "Never")</td></tr>
+    @if (Model.State.LastDeployCommit != null)
+    {
+        <tr><td>Commit</td><td><code>@Model.State.LastDeployCommit[..Math.Min(8, Model.State.LastDeployCommit.Length)]</code></td></tr>
+    }
+</table>
+
+<h2>Deploy Log</h2>
+@if (Model.DeployLog.Count == 0)
+{
+    <p>No deployments yet.</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr><th>Time</th><th>Action</th><th>Result</th><th>Message</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var entry in Model.DeployLog)
+            {
+                <tr>
+                    <td>@entry.Timestamp.ToString("g")</td>
+                    <td>@entry.Action</td>
+                    <td>@entry.Result</td>
+                    <td>@entry.Message</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<h2>Service Logs</h2>
+<pre class="log">@Model.JournalLogs</pre>

@@ -1,0 +1,29 @@
+[Unit]
+Description=Lfmt.NetRunner deployment service
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/netrunner
+ExecStart=/usr/bin/dotnet /opt/netrunner/Lfmt.NetRunner.dll
+Restart=always
+RestartSec=5
+SyslogIdentifier=netrunner
+
+User=netrunner
+Group=netrunner
+
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=DOTNET_NOLOGO=1
+
+ProtectSystem=strict
+ReadWritePaths=/var/lib/netrunner
+PrivateTmp=true
+ProtectHome=true
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+PrivateDevices=true
+
+[Install]
+WantedBy=multi-user.target

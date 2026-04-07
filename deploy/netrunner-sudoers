@@ -1,0 +1,2 @@
+# All privileged ops go through the validated wrapper script
+netrunner ALL=(root) NOPASSWD: /opt/netrunner/netrunner-sudo.sh *

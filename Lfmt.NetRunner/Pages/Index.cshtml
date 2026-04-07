@@ -1,0 +1,48 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<h1>Applications</h1>
+
+@if (Model.Apps.Count == 0)
+{
+    <p>No applications registered. <a href="/App/Create">Create one</a>.</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Port</th>
+                <th>Status</th>
+                <th>Last Deploy</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var (config, state) in Model.Apps)
+            {
+                <tr>
+                    <td><a href="/App/@config.Name">@config.Name</a></td>
+                    <td>@config.Port</td>
+                    <td class="status-@state.Status.ToString().ToLower()">@state.Status</td>
+                    <td>@(state.LastDeployedAt?.ToString("g") ?? "Never")</td>
+                    <td class="actions">
+                        @if (state.Status == Lfmt.NetRunner.Models.AppStatus.Running)
+                        {
+                            <button class="outline secondary" onclick="apiPost('/api/apps/@config.Name/restart')">Restart</button>
+                            <button class="outline secondary" onclick="apiPost('/api/apps/@config.Name/stop')">Stop</button>
+                        }
+                        else
+                        {
+                            <button class="outline" onclick="apiPost('/api/apps/@config.Name/start')">Start</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

@@ -1,0 +1,18 @@
+@page "/App/{name}/Deploy"
+@model Lfmt.NetRunner.Pages.App.DeployModel
+@{
+    ViewData["Title"] = $"Deploy {Model.Name}";
+}
+
+<h1>Deploy @Model.Name</h1>
+
+<form method="post" enctype="multipart/form-data">
+    <label>
+        Archive (.tar.gz or .zip)
+        <input type="file" name="archive" required accept=".tar.gz,.tgz,.zip" />
+    </label>
+    <small>The archive should contain the source code with a <code>.netrunner</code> file in the root.</small>
+    <button type="submit">Deploy</button>
+</form>
+
+<a href="/App/@Model.Name">&larr; Back to @Model.Name</a>
