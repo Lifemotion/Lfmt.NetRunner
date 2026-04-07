@@ -33,7 +33,9 @@ NetRunner (running as `netrunner`) writes to `env` via the privileged wrapper sc
 
 ### Systemd Hardening
 
-Every generated .service file includes:
+**NetRunner itself** runs with minimal hardening (`PrivateTmp`, `PrivateDevices` only). It cannot use `NoNewPrivileges`, `ProtectSystem`, or `ProtectHome` because it needs sudo for user creation, service management, and `dotnet publish`. `DOTNET_CLI_HOME` and `HOME` are set to `/var/lib/netrunner` since the `netrunner` user has no home directory.
+
+**Managed applications** get full hardening. Every generated .service file includes:
 
 ```ini
 # Filesystem
