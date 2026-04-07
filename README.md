@@ -62,3 +62,7 @@ curl -X POST http://localhost:5050/api/apps/create -F "file=@app.zip"
 - [Deployment flow](docs/deployment-flow.md)
 - [Server setup](docs/server-setup.md)
 - [Design decisions](docs/decisions.md)
+
+## License
+
+[GPL-3.0](LICENSE)
