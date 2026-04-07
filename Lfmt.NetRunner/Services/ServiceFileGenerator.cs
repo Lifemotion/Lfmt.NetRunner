@@ -69,7 +69,7 @@ public class ServiceFileGenerator
             .Replace("{{cpu}}", appConfig.Cpu)
             .Replace("{{dotnet_path}}", _runnerConfig.DotnetPath)
             .Replace("{{dll_name}}", appConfig.GetDllName())
-            .Replace("{{extra_directives}}", appConfig.ExtraDirectives ?? "");
+            .Replace("{{extra_directives}}", ValidateExtraDirectives(appConfig.ExtraDirectives));
 
         // Add environment variables from config
         if (appConfig.EnvironmentVariables.Count > 0)
@@ -130,5 +130,30 @@ public class ServiceFileGenerator
             lines.Insert(insertIdx, directive);
 
         return string.Join("\n", lines);
+    }
+
+    private static readonly string[] ForbiddenDirectivePrefixes =
+    [
+        "ExecStartPre=", "ExecStartPost=", "ExecStopPost=", "ExecReload=",
+        "User=", "Group=", "RootDirectory=", "RootImage=",
+    ];
+
+    private static string ValidateExtraDirectives(string? directives)
+    {
+        if (string.IsNullOrEmpty(directives)) return "";
+
+        foreach (var line in directives.Split('\n'))
+        {
+            var trimmed = line.Trim();
+            if (string.IsNullOrEmpty(trimmed)) continue;
+
+            foreach (var forbidden in ForbiddenDirectivePrefixes)
+            {
+                if (trimmed.StartsWith(forbidden, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException($"Forbidden directive in extra_directives: {trimmed}");
+            }
+        }
+
+        return directives;
     }
 }
