@@ -27,7 +27,7 @@ else
             {
                 <tr>
                     <td><a href="/App/@config.Name">@config.Name</a></td>
-                    <td>@config.Port</td>
+                    <td><a href="http://localhost:@config.Port/" target="_blank">@config.Port</a></td>
                     <td class="status-@state.Status.ToString().ToLower()">@state.Status</td>
                     <td>@(state.LastDeployedAt?.ToString("g") ?? "Never")</td>
                     <td class="actions">

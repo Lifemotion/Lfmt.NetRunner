@@ -45,9 +45,11 @@ case "${1:-}" in
     # --- App directory setup ---
     init-app)
         validate_name "$2"
-        mkdir -p "$APPS_ROOT/$2/releases"
+        mkdir -p "$APPS_ROOT/$2/releases" "$APPS_ROOT/$2/source"
         chown -R "netrunner-$2:netrunner" "$APPS_ROOT/$2"
         chmod -R g+rwx "$APPS_ROOT/$2"
+        # Set setgid so new files/dirs inherit group
+        find "$APPS_ROOT/$2" -type d -exec chmod g+s {} +
         ;;
 
     # --- User management ---
@@ -73,6 +75,10 @@ case "${1:-}" in
         ;;
 
     # --- Env file management ---
+    read-env)
+        validate_name "$2"
+        cat "$APPS_ROOT/$2/env" 2>/dev/null || true
+        ;;
     write-env)
         validate_name "$2"
         cat > "$APPS_ROOT/$2/env"

@@ -70,6 +70,12 @@ app.MapPost("/api/apps/{name}/rollback", async (string name, DeployService deplo
     return result ? Results.Ok() : Results.StatusCode(500);
 });
 
+app.MapPost("/api/apps/{name}/delete", async (string name, AppManager appManager) =>
+{
+    await appManager.DeleteApp(name);
+    return Results.Ok();
+});
+
 app.MapPost("/api/apps/{name}/deploy", async (string name, HttpRequest request, DeployService deploy) =>
 {
     var form = await request.ReadFormAsync();

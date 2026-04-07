@@ -6,7 +6,7 @@
 
 <hgroup>
     <h1>@Model.Config.Name</h1>
-    <p>Port @Model.Config.Port &mdash;
+    <p><a href="http://localhost:@Model.Config.Port/" target="_blank">localhost:@Model.Config.Port</a> &mdash;
         <span class="status-@Model.State!.Status.ToString().ToLower()">@Model.State.Status</span>
     </p>
 </hgroup>
@@ -28,6 +28,7 @@
     {
         <button class="outline contrast" onclick="if(confirm('Rollback to previous version?')) apiPost('/api/apps/@Model.Config.Name/rollback')">Rollback</button>
     }
+    <button class="outline" style="--pico-color: var(--pico-color-red-500);" onclick="if(confirm('Delete app @Model.Config.Name and all its data?')) apiPost('/api/apps/@Model.Config.Name/delete', '/')">Delete</button>
 </div>
 
 <h2>Configuration</h2>

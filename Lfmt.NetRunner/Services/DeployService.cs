@@ -176,6 +176,10 @@ public class DeployService
                 if (!File.Exists(projectPath))
                     throw new InvalidOperationException($"Project file not found: {appConfig.Project}");
 
+                // Clean obj dirs to avoid cross-platform NuGet path issues
+                foreach (var objDir in Directory.GetDirectories(sourceDir, "obj", SearchOption.AllDirectories))
+                    Directory.Delete(objDir, true);
+
                 _logger.LogInformation("Building {App}: dotnet publish", appName);
                 var buildResult = await RunProcess(_config.DotnetPath,
                     $"publish \"{projectPath}\" -c Release -o \"{vNewDir}\"",
@@ -184,12 +188,16 @@ public class DeployService
 
                 if (!buildResult.Success)
                 {
+                    var buildError = !string.IsNullOrWhiteSpace(buildResult.Error)
+                        ? buildResult.Error
+                        : buildResult.Output;
+                    _logger.LogError("Build failed for {App}: {Error}", appName, buildError);
                     await _appManager.AppendDeployLog(appName, new DeploymentLogEntry
                     {
                         Timestamp = DateTimeOffset.UtcNow,
                         Action = "DEPLOY",
                         Result = "FAILURE",
-                        Message = $"Build failed: {buildResult.Error}",
+                        Message = $"Build failed: {buildError}",
                         Commit = commitId,
                     });
                     CleanupDir(vNewDir);
@@ -370,6 +378,14 @@ public class DeployService
             UseShellExecute = false,
             WorkingDirectory = workingDir ?? "",
         };
+
+        // Ensure NuGet uses Linux paths, not inherited Windows paths
+        if (OperatingSystem.IsLinux())
+        {
+            var home = Environment.GetEnvironmentVariable("HOME") ?? "/tmp";
+            psi.Environment["NUGET_PACKAGES"] = Path.Combine(home, ".nuget", "packages");
+            psi.Environment["NUGET_FALLBACK_PACKAGES"] = "";
+        }
 
         using var process = Process.Start(psi)!;
         try

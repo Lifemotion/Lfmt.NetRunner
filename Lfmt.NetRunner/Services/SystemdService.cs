@@ -52,6 +52,17 @@ public class SystemdService
         return await RunSudo("logs", appName, lines.ToString());
     }
 
+    public async Task<string> ReadEnv(string appName)
+    {
+        if (_devMode)
+        {
+            var envPath = Path.Combine(_config.AppsRoot, appName, "env");
+            return File.Exists(envPath) ? await File.ReadAllTextAsync(envPath) : "";
+        }
+
+        return await RunSudo("read-env", appName);
+    }
+
     public async Task WriteEnv(string appName, string content)
     {
         if (_devMode)

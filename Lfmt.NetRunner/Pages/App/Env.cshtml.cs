@@ -22,18 +22,12 @@ public class EnvModel : PageModel
         _config = config;
     }
 
-    public IActionResult OnGet(string name)
+    public async Task<IActionResult> OnGetAsync(string name)
     {
         Name = name;
         if (_appManager.GetAppConfig(name) == null) return NotFound();
 
-        var envPath = Path.Combine(_config.AppsRoot, name, "env");
-        if (System.IO.File.Exists(envPath))
-        {
-            try { Content = System.IO.File.ReadAllText(envPath); }
-            catch { Content = "(unable to read - file is root-owned)"; }
-        }
-
+        Content = await _systemd.ReadEnv(name);
         return Page();
     }
 
