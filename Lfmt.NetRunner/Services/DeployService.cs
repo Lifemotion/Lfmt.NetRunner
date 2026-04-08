@@ -49,7 +49,7 @@ public class DeployService
             var sourceDir = Path.Combine(appDir, "source");
 
             // Clean up previous source and v_new (may be owned by app user)
-            await _systemd.CleanDeploy(appName);
+            await CleanDeployFiles(appName);
             Directory.CreateDirectory(sourceDir);
 
             // Extract archive
@@ -94,7 +94,7 @@ public class DeployService
             var sourceDir = Path.Combine(appDir, "source");
 
             // Clean up previous source and v_new (may be owned by app user)
-            await _systemd.CleanDeploy(appName);
+            await CleanDeployFiles(appName);
 
             // Validate branch name to prevent command injection
             if (!Regex.IsMatch(branch, @"^[a-zA-Z0-9/_.\-]+$"))
@@ -192,7 +192,7 @@ public class DeployService
         if (Directory.Exists(vNewDir))
         {
             try { Directory.Delete(vNewDir, true); }
-            catch { await _systemd.CleanDeploy(appName); }
+            catch { await CleanDeployFiles(appName); }
         }
 
         try
@@ -275,8 +275,21 @@ public class DeployService
             // Set ownership
             await _systemd.ChownApp(appName);
 
-            // Atomic symlink swap to v_new
-            AtomicSymlinkSwap(Path.Combine(appDir, "current"), "releases/v_new");
+            // Rotate versions BEFORE starting so the app launches from its final path.
+            // ASP.NET Core resolves symlinks at startup (getcwd/realpath), so if the app
+            // starts from v_new and v_new is later renamed, the resolved path becomes
+            // dead — breaking static file serving and lazy-loaded DLL resolution.
+            var v1Dir = Path.Combine(releasesDir, "v1");
+            var v2Dir = Path.Combine(releasesDir, "v2");
+
+            if (Directory.Exists(v2Dir))
+            {
+                CleanupDir(v1Dir);
+                Directory.Move(v2Dir, v1Dir);
+            }
+            Directory.Move(vNewDir, v2Dir);
+
+            AtomicSymlinkSwap(Path.Combine(appDir, "current"), "releases/v2");
 
             await _systemd.DaemonReload();
             await _systemd.Enable(appName);
@@ -289,17 +302,6 @@ public class DeployService
 
             if (healthy)
             {
-                // Finalize rotation: v1 deleted, v2 → v1, v_new → v2
-                var v1Dir = Path.Combine(releasesDir, "v1");
-                var v2Dir = Path.Combine(releasesDir, "v2");
-
-                CleanupDir(v1Dir);
-                if (Directory.Exists(v2Dir))
-                    Directory.Move(v2Dir, v1Dir);
-                Directory.Move(vNewDir, v2Dir);
-
-                AtomicSymlinkSwap(Path.Combine(appDir, "current"), "releases/v2");
-
                 await _appManager.AppendDeployLog(appName, new DeploymentLogEntry
                 {
                     Timestamp = DateTimeOffset.UtcNow,
@@ -316,15 +318,18 @@ public class DeployService
                 // Auto-rollback
                 _logger.LogWarning("Health check failed for {App}, rolling back", appName);
 
-                var v2Dir = Path.Combine(releasesDir, "v2");
-                if (Directory.Exists(v2Dir))
+                if (Directory.Exists(v1Dir))
                 {
-                    AtomicSymlinkSwap(Path.Combine(appDir, "current"), "releases/v2");
+                    AtomicSymlinkSwap(Path.Combine(appDir, "current"), "releases/v1");
                     await _systemd.Restart(appName);
 
                     var rollbackHealthy = await _healthCheck.CheckHealth(
                         appConfig.Port, appConfig.HealthPath, appConfig.HealthPhrase,
                         appConfig.HealthTimeoutSeconds, appConfig.HealthIntervalSeconds);
+
+                    // Remove failed version so it doesn't become a rollback target
+                    if (rollbackHealthy)
+                        CleanupDir(v2Dir);
 
                     await _appManager.AppendDeployLog(appName, new DeploymentLogEntry
                     {
@@ -332,7 +337,7 @@ public class DeployService
                         Action = "ROLLBACK",
                         Result = rollbackHealthy ? "SUCCESS" : "FAILURE",
                         Message = rollbackHealthy
-                            ? "Auto-rolled back to v2"
+                            ? "Auto-rolled back to v1"
                             : "Rollback also failed, service stopped",
                         Commit = commitId,
                     });
@@ -452,6 +457,27 @@ public class DeployService
                 Error = $"Process timed out after {timeoutSeconds}s",
                 ExitCode = -1,
             };
+        }
+    }
+
+    private async Task CleanDeployFiles(string appName)
+    {
+        var appDir = _appManager.GetAppDir(appName);
+        var sourceDir = Path.Combine(appDir, "source");
+        var vNewDir = Path.Combine(appDir, "releases", "v_new");
+
+        if (!Directory.Exists(sourceDir) && !Directory.Exists(vNewDir))
+            return;
+
+        try
+        {
+            CleanupDir(sourceDir);
+            CleanupDir(vNewDir);
+        }
+        catch
+        {
+            // Direct deletion failed (files owned by app user), use sudo
+            await _systemd.CleanDeploy(appName);
         }
     }
 
